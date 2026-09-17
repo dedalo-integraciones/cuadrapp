@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ProductItem, CartItem } from '../types';
 import { formatPriceARS, RUBRO_COLORS } from '../utils/csvParser';
-import { Plus, ShoppingBag } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { ProductImage } from './ProductImage';
 
 interface MenuSectionProps {
   rubro: string;
@@ -22,7 +23,6 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
   rubroColor,
 }) => {
   const { isDark } = useTheme();
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const sectionColor = rubroColor || RUBRO_COLORS[rubro] || '#C91810';
 
@@ -62,7 +62,6 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
           const itemInCart = cart.find((c) => String(c.itemId) === String(item.id));
           const quantityInCart = itemInCart ? itemInCart.cantidad : 0;
           const cardColor = item.color || sectionColor;
-          const hasImage = Boolean(item.imagen && item.imagen.trim().length > 0 && !imageErrors[String(item.id)]);
 
           return (
             <article
@@ -170,50 +169,19 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                     </div>
                   </div>
 
-                  {/* Right: Big, spacious Image thumbnail */}
+                  {/* Right: Big, spacious Image thumbnail with poster */}
                   <div className="flex-shrink-0">
-                    {hasImage ? (
-                      <div
-                        className={`relative w-28 h-24 sm:w-32 sm:h-28 rounded-xl overflow-hidden border shadow-md transition-colors duration-300 ${
-                          isDark
-                            ? 'bg-stone-900 border-stone-800'
-                            : 'bg-stone-100 border-stone-200'
-                        }`}
-                      >
-                        <img
-                          src={item.imagen}
-                          alt={item.nombre}
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                          onError={() => {
-                            setImageErrors((prev) => ({ ...prev, [String(item.id)]: true }));
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className={`w-24 h-20 sm:w-28 sm:h-24 rounded-xl flex flex-col items-center justify-center border border-dashed select-none transition-colors duration-300 ${
-                          isDark
-                            ? 'bg-stone-900 border-stone-700 text-stone-300'
-                            : 'bg-stone-50 border-stone-300 text-stone-600'
-                        }`}
-                        title="Imagen no disponible"
-                        aria-label="Sin imagen disponible"
-                      >
-                        <ShoppingBag
-                          className="w-6 h-6 opacity-70"
-                          style={{ color: cardColor }}
-                          aria-hidden="true"
-                        />
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-tight mt-1"
-                          style={{ color: cardColor }}
-                        >
-                          Sin foto
-                        </span>
-                      </div>
-                    )}
+                    <ProductImage
+                      src={item.imagen}
+                      alt={item.nombre}
+                      posterSrc="/no-image.webp"
+                      loading="lazy"
+                      containerClassName={`w-28 h-24 sm:w-32 sm:h-28 rounded-xl overflow-hidden border shadow-md transition-colors duration-300 ${
+                        isDark
+                          ? 'bg-stone-900 border-stone-800'
+                          : 'bg-stone-100 border-stone-200'
+                      }`}
+                    />
                   </div>
                 </div>
               </div>

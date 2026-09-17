@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ProductItem } from '../types';
 import { formatPriceARS } from '../utils/csvParser';
 import { useTheme } from '../context/ThemeContext';
-import { X, Plus, Minus, ShoppingBag, Check } from 'lucide-react';
+import { X, Plus, Minus, Check } from 'lucide-react';
+import { ProductImage } from './ProductImage';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -23,13 +24,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   const { isDark } = useTheme();
   const [quantity, setQuantity] = useState(1);
-  const [imgError, setImgError] = useState(false);
 
-  // Reset quantity and image error state when a new product is loaded
+  // Reset quantity when a new product is loaded
   useEffect(() => {
     if (product) {
       setQuantity(1);
-      setImgError(false);
     }
   }, [product]);
 
@@ -55,7 +54,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   if (!isOpen || !product) return null;
 
   const cardColor = product.color || rubroColor || '#C91810';
-  const hasImage = Boolean(product.imagen && product.imagen.trim().length > 0 && !imgError);
 
   const handleAdd = () => {
     onAddToCart(product, quantity);
@@ -120,32 +118,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* Product Image Section */}
-          <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-inner border border-stone-700/50 bg-stone-900/60 flex items-center justify-center">
-            {hasImage ? (
-              <img
-                src={product.imagen}
-                alt={product.nombre}
-                onError={() => setImgError(true)}
-                className="w-full h-full object-cover object-center"
-              />
-            ) : (
-              <div
-                className={`w-full h-full flex flex-col items-center justify-center p-4 text-center select-none ${
-                  isDark ? 'bg-stone-900/80 text-stone-400' : 'bg-stone-100 text-stone-500'
-                }`}
-              >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 shadow-xs"
-                  style={{ backgroundColor: `${cardColor}20`, color: cardColor }}
-                >
-                  <ShoppingBag className="w-7 h-7 stroke-[2]" />
-                </div>
-                <span className="text-xs font-bold tracking-wide">
-                  Imagen ilustrativa próximamente
-                </span>
-              </div>
-            )}
+          {/* Product Image Section with poster */}
+          <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-inner border border-stone-700/50 flex items-center justify-center">
+            <ProductImage
+              src={product.imagen}
+              alt={product.nombre}
+              posterSrc="/no-image.webp"
+              loading="eager"
+              containerClassName="w-full h-full"
+              className="w-full h-full object-cover object-center"
+            />
           </div>
 
           {/* Product Title & Price Header */}

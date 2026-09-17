@@ -63,6 +63,23 @@ function MainAppContent() {
         if (isFresh && parsedCache.data?.productos?.length > 0) {
           setCatalog(parsedCache.data);
           setIsLoading(false);
+
+          // Pre-calentar imágenes en caché del navegador durante tiempo ocioso
+          if (typeof window !== 'undefined') {
+            const prewarm = () => {
+              parsedCache.data.productos.forEach((p) => {
+                if (p.imagen && p.imagen.trim()) {
+                  const img = new Image();
+                  img.src = p.imagen.trim();
+                }
+              });
+            };
+            if ('requestIdleCallback' in window) {
+              (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(prewarm);
+            } else {
+              setTimeout(prewarm, 500);
+            }
+          }
           return;
         }
       }

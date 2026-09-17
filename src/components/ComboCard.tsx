@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ComboItem } from '../types';
-import { Plus, Check, ImageOff } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import { formatPriceARS } from '../utils/csvParser';
 import { useTheme } from '../context/ThemeContext';
+import { ProductImage } from './ProductImage';
 
 interface ComboCardProps {
   combo: ComboItem;
@@ -18,10 +19,7 @@ export const ComboCard: React.FC<ComboCardProps> = ({
   quantityInCart = 0,
 }) => {
   const { isDark } = useTheme();
-  const [imgError, setImgError] = useState(false);
   const { nombre, detalle_1, detalle_2, precio, color } = combo;
-
-  const hasImage = Boolean(imagen && imagen.trim().length > 0 && !imgError);
 
   return (
     <div
@@ -130,39 +128,17 @@ export const ComboCard: React.FC<ComboCardProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Dish Image or No Disponible Icon (Placed in Lower Layer) */}
+        {/* Right Side: Dish Image with poster fallback */}
         <div className="w-32 h-28 sm:w-36 sm:h-30 flex-shrink-0 flex items-center justify-center relative z-0 pointer-events-none select-none">
-          {hasImage ? (
-            <img
-              src={imagen}
-              alt={`${nombre} - Milanesas y Rollitos`}
-              referrerPolicy="no-referrer"
-              loading="lazy"
-              decoding="async"
-              width={144}
-              height={112}
-              className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)] transition-transform duration-300 group-hover:scale-105 pointer-events-none"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div
-              className="w-full h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-2 text-center transition-all bg-white/70 backdrop-blur-xs pointer-events-none"
-              style={{ borderColor: `${color}60` }}
-            >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center mb-1 shadow-2xs"
-                style={{ backgroundColor: `${color}20`, color: color }}
-              >
-                <ImageOff className="w-4.5 h-4.5" />
-              </div>
-              <span
-                className="text-[10px] font-extrabold uppercase tracking-tight"
-                style={{ color: color }}
-              >
-                [No disponible]
-              </span>
-            </div>
-          )}
+          <ProductImage
+            src={imagen}
+            alt={`${nombre} - Cuadra.app`}
+            posterSrc="/no-image.webp"
+            loading="lazy"
+            objectFit="cover"
+            containerClassName="w-full h-full rounded-2xl overflow-hidden shadow-xs border border-stone-800/40"
+            className="filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)] transition-transform duration-300 group-hover:scale-105"
+          />
         </div>
       </div>
     </div>

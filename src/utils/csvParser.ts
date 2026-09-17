@@ -1,5 +1,6 @@
 import { ProductItem, RubroItem, MasterCatalog, ComboItem, PriceKiloItem } from '../types';
 import { WHATSAPP_PHONE_DISPLAY, WHATSAPP_PHONE_NUMBER } from '../config';
+import { resolveGalleryImage } from '../gallery';
 
 export { WHATSAPP_PHONE_DISPLAY, WHATSAPP_PHONE_NUMBER };
 
@@ -42,120 +43,244 @@ export const FALLBACK_RUBROS: RubroItem[] = [
   { id_rubro: 7, rubro: 'BEBIDAS', color: '#0055A4', descrip: '(Azul clásico)' },
 ];
 
+/**
+ * Catálogo Demo / Modo Placebo:
+ * Representa los productos de la Google Sheet mapeados estratégicamente con las imágenes locales
+ * de la galería src/gallery/ (con prefijo 'm' y formato .webp).
+ * Sirve como catálogo optimizado para que las imágenes carguen holgadamente en la plataforma demo.
+ */
 export const FALLBACK_PRODUCTS: ProductItem[] = [
   {
     id: 9,
     rubro: 'COMBOS',
     nombre: 'Combo 1',
-    detalle_1: '2 Lomos completos',
-    detalle_2: 'Papas fritas chicas',
+    detalle_1: '2 lomos',
+    detalle_2: 'Papas chicas',
     precio: 36000,
     color: '#C91810',
     activo: 'SI',
-    imagen: '/images/1.webp',
+    // Sheet original: https://i.ibb.co/Q7PtVYGq/imgi-20-default.jpg
+    imagen: resolveGalleryImage('imgi-20-default.jpg'),
   },
   {
     id: 10,
     rubro: 'COMBOS',
     nombre: 'Combo 2',
-    detalle_1: '2 Hamburguesas cheddar',
-    detalle_2: 'Papas fritas chicas',
+    detalle_1: 'Lomo especial',
+    detalle_2: 'Papas chicas',
+    precio: 22000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/jP4ph41t/imgi-21-default.jpg
+    imagen: resolveGalleryImage('imgi-21-default.jpg'),
+  },
+  {
+    id: 11,
+    rubro: 'COMBOS',
+    nombre: 'Combo 3',
+    detalle_1: 'Burguer Cheddar',
+    detalle_2: 'Papas chicas',
+    precio: 10000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/rfb12svG/imgi-22-default.jpg
+    imagen: resolveGalleryImage('imgi-22-default.jpg'),
+  },
+  {
+    id: 12,
+    rubro: 'COMBOS',
+    nombre: 'Combo 4',
+    detalle_1: '1 muzza',
+    detalle_2: '1 doc empanadas',
     precio: 25000,
     color: '#C91810',
     activo: 'SI',
-    imagen: '/images/2.webp',
+    // Sheet original: https://i.ibb.co/mVcG15RL/imgi-23-default.jpg
+    imagen: resolveGalleryImage('imgi-23-default.jpg'),
+  },
+  {
+    id: 13,
+    rubro: 'COMBOS',
+    nombre: 'Combo 5',
+    detalle_1: '2 muzzas',
+    detalle_2: '',
+    precio: 20000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/3YMfcHR8/imgi-24-default.jpg
+    imagen: resolveGalleryImage('imgi-24-default.jpg'),
+  },
+  {
+    id: 14,
+    rubro: 'COMBOS',
+    nombre: 'Combo 6',
+    detalle_1: '1 muzza + 1/2 empanadas',
+    detalle_2: 'Papas chicas',
+    precio: 15000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/nGPXN9T/imgi-25-default.jpg
+    imagen: resolveGalleryImage('imgi-25-default.jpg'),
+  },
+  {
+    id: 15,
+    rubro: 'COMBOS',
+    nombre: 'Combo 7',
+    detalle_1: '2 docenas empanadas carne',
+    detalle_2: '',
+    precio: 20000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/DgHG8kMd/imgi-32-default.jpg
+    imagen: resolveGalleryImage('imgi-32-default.jpg'),
   },
   {
     id: 1,
     rubro: 'LOMOS',
-    nombre: 'Lomo completo',
-    detalle_1: 'Pan Francés / Árabe',
-    detalle_2: 'Lechuga, tomate, condimentos',
+    nombre: 'Lomo completo XX',
+    detalle_1: 'Pan Frances/Arabe',
+    detalle_2: 'lechuga, tomate, condimentos',
     precio: 18000,
     color: '#e84393',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/S40wgnm5/imgi-26-default.jpg
+    imagen: resolveGalleryImage('imgi-26-default.jpg'),
   },
   {
     id: 2,
     rubro: 'LOMOS',
     nombre: 'Lomo especial',
-    detalle_1: 'Pan Francés / Árabe',
-    detalle_2: 'Lechuga, tomate, huevo, jamón, condimentos',
+    detalle_1: 'Pan Frances/Arabe',
+    detalle_2: 'lechuga, tomate, condimentos, huevo, jamon',
     precio: 22000,
     color: '#e84393',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/6JRk4rYk/imgi-27-default.jpg
+    imagen: resolveGalleryImage('imgi-27-default.jpg'),
   },
   {
     id: 3,
     rubro: 'HAMBURGUESAS',
-    nombre: 'Cheddar Simple',
-    detalle_1: '1 medallón casero, cheddar fundido',
-    detalle_2: 'Lechuga fresca, tomate, aderezos',
+    nombre: 'Cheddar',
+    detalle_1: '1 medallon, tomate, lechuga',
+    detalle_2: 'condimentos',
     precio: 10000,
     color: '#00b6b6',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/qLDM7zzn/imgi-28-default.jpg
+    imagen: resolveGalleryImage('imgi-28-default.jpg'),
   },
   {
     id: 4,
     rubro: 'HAMBURGUESAS',
     nombre: 'Doble carne Cheddar',
-    detalle_1: '2 medallones caseros, doble cheddar',
-    detalle_2: 'Lechuga, tomate, aderezos especiales',
+    detalle_1: '2 medallones, tomate, lechuga',
+    detalle_2: 'condimentos',
     precio: 15000,
     color: '#00b6b6',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/QvXL8RhV/imgi-29-default.jpg
+    imagen: resolveGalleryImage('imgi-29-default.jpg'),
   },
   {
     id: 5,
     rubro: 'PIZZAS',
-    nombre: 'Muzzarella (6 porciones)',
+    nombre: 'Muzzarela 8 porciones',
     detalle_1: 'Masa casera a la piedra',
-    detalle_2: 'Salsa de tomate casera y abundante muzzarella',
+    detalle_2: 'Salsa de tomate y abundante muzzarella',
     precio: 10000,
     color: '#7c5cbf',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/67KGPy9b/imgi-30-default.jpg
+    imagen: resolveGalleryImage('imgi-30-default.jpg'),
   },
   {
     id: 6,
     rubro: 'PIZZAS',
-    nombre: 'Muzzarella (8 porciones)',
+    nombre: 'Especial 8 porciones',
     detalle_1: 'Masa casera a la piedra',
-    detalle_2: 'Salsa de tomate y abundante muzzarella',
+    detalle_2: 'Jamón cocido, morrones y muzzarella',
     precio: 15000,
     color: '#7c5cbf',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/gMkRrTXZ/imgi-31-default.jpg
+    imagen: resolveGalleryImage('imgi-31-default.jpg'),
   },
   {
     id: 7,
     rubro: 'EMPANADAS',
-    nombre: 'Empanadas de Carne (Docena)',
+    nombre: 'Carne',
     detalle_1: 'Por docena (12 unidades)',
     detalle_2: 'Carne cortada a cuchillo, receta tradicional',
     precio: 12000,
     color: '#5fbf8b',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/DgHG8kMd/imgi-32-default.jpg
+    imagen: resolveGalleryImage('imgi-32-default.jpg'),
   },
   {
     id: 8,
     rubro: 'EMPANADAS',
-    nombre: 'Empanadas Jamón y Queso (Docena)',
+    nombre: 'Jamon y queso',
     detalle_1: 'Por docena (12 unidades)',
     detalle_2: 'Relleno de jamón cocido y queso cremoso',
     precio: 12000,
     color: '#5fbf8b',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/3y7pfn4Q/imgi-33-default.jpg
+    imagen: resolveGalleryImage('imgi-33-default.jpg'),
   },
   {
     id: 16,
     rubro: 'MENÚ DEL DÍA',
     nombre: 'Lasagna',
-    detalle_1: 'Con salsa bolognesa y queso gratinado',
-    detalle_2: 'Porción casera abundante',
+    detalle_1: 'Salsa bolognesa',
+    detalle_2: 'Porción casera abundante gratinada',
     precio: 8000,
     color: '#C91810',
     activo: 'SI',
+    // Sheet original: https://i.ibb.co/qYBFxkSY/imgi-34-default.jpg
+    imagen: resolveGalleryImage('imgi-34-default.jpg'),
+  },
+  {
+    id: 17,
+    rubro: 'MENÚ DEL DÍA',
+    nombre: 'Canelones',
+    detalle_1: 'Salsa mixta',
+    detalle_2: 'Rellenos de verdura y carne con salsa',
+    precio: 8000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/QjCGV6Lb/imgi-35-default.jpg
+    imagen: resolveGalleryImage('imgi-35-default.jpg'),
+  },
+  {
+    id: 18,
+    rubro: 'MENÚ DEL DÍA',
+    nombre: 'Mila de pollo',
+    detalle_1: 'Papas fritas',
+    detalle_2: 'Pechuga rebozada casera crujiente',
+    precio: 8000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/7fqXFnW/imgi-36-default.jpg
+    imagen: resolveGalleryImage('imgi-36-default.jpg'),
+  },
+  {
+    id: 19,
+    rubro: 'MENÚ DEL DÍA',
+    nombre: 'Merluza a la romana',
+    detalle_1: 'Papas fritas',
+    detalle_2: 'Filet de merluza fresca a la romana con limón',
+    precio: 8000,
+    color: '#C91810',
+    activo: 'SI',
+    // Sheet original: https://i.ibb.co/hxqfWps6/imgi-37-default.jpg
+    imagen: resolveGalleryImage('imgi-37-default.jpg'),
   },
 ];
+
+export const PLACEBO_PRODUCTS = FALLBACK_PRODUCTS;
 
 // Fallback legacy datasets
 export const FALLBACK_COMBOS: ComboItem[] = [
@@ -392,7 +517,11 @@ export function parseProductosCSV(
     const color = customColor || rubroColor;
 
     let imagen = imagenIdx >= 0 && row[imagenIdx] ? row[imagenIdx].trim() : '';
-    if (!imagen && rubro === 'COMBOS') {
+    // Estrategia inteligente: si la Sheet asigna una imagen (imgi_XX_default.jpg), se vincula con la galería local (mimgi_XX_default.webp)
+    const galleryImage = resolveGalleryImage(imagen);
+    if (galleryImage) {
+      imagen = galleryImage;
+    } else if (!imagen && rubro === 'COMBOS') {
       imagen = defaultImages[String(id)] || '';
     }
 
@@ -457,11 +586,16 @@ export function groupByRubro(
 
 /**
  * Estrategia principal de carga:
- * Consulta el endpoint backend seguro /api/catalog para no exponer jamás
- * el ID de Google Sheets ni endpoints de Google al navegador.
+ * MODO PLACEBO DEMO (Activo en esta instancia para carga holgada e instantánea):
+ * Se vinculan las imágenes locales de la galería (m...webp) basadas en la Sheet.
+ * NOTA DE ARQUITECTURA: El código de consulta a Google Sheets se mantiene intacto
+ * pero comentado por solicitud del usuario, para servir como plantilla a futuros clientes.
  */
 export async function fetchMasterCatalog(): Promise<MasterCatalog> {
-  // 1. Consultar el endpoint seguro del servidor
+  /*
+  // =========================================================================
+  // CÓDIGO DE REFERENCIA A GOOGLE SHEET (Comentado para modo placebo):
+  // Descomentar este bloque para sincronización dinámica en vivo con Google Sheets:
   try {
     const response = await fetch(SECURE_CATALOG_API);
     if (response.ok) {
@@ -477,8 +611,10 @@ export async function fetchMasterCatalog(): Promise<MasterCatalog> {
   } catch (error) {
     console.warn('Endpoint seguro /api/catalog no disponible, usando fallback local.', error);
   }
+  // =========================================================================
+  */
 
-  // 2. Fallback contingente offline con datos locales predeterminados
+  // Modo placebo: Carga inmediata desde el catálogo con mapeo de imágenes de la galería (m...webp)
   const parsedRubros = parseRubrosCSV('');
   return groupByRubro(FALLBACK_PRODUCTS, parsedRubros.rubrosMap);
 }

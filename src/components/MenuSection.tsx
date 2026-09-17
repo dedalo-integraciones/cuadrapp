@@ -175,7 +175,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                       src={item.imagen}
                       alt={item.nombre}
                       posterSrc="/no-image.webp"
-                      loading="lazy"
+                      loading="eager"
                       containerClassName={`w-28 h-24 sm:w-32 sm:h-28 rounded-xl overflow-hidden border shadow-md transition-colors duration-300 ${
                         isDark
                           ? 'bg-stone-900 border-stone-800'

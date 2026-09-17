@@ -4,6 +4,7 @@ import {
   FALLBACK_PRODUCTS,
   fetchMasterCatalog,
   groupByRubro,
+  parseRubrosCSV,
 } from './utils/csvParser';
 import {
   COMPANY_NAME,
@@ -28,8 +29,14 @@ const Toast = lazy(() => import('./components/Toast'));
 const CategoryDrawer = lazy(() => import('./components/CategoryDrawer'));
 const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'));
 
-const CACHE_KEY = 'sabor_casero_master_catalog_v3';
+const CACHE_KEY = 'sabor_casero_master_catalog_placebo_v5';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos en milisegundos
+
+// Catálogo precomputado inmediatamente disponible en memoria para carga instantánea
+const DEFAULT_INITIAL_CATALOG: MasterCatalog = (() => {
+  const parsedRubros = parseRubrosCSV('');
+  return groupByRubro(FALLBACK_PRODUCTS, parsedRubros.rubrosMap);
+})();
 
 interface CachedData {
   timestamp: number;
@@ -39,9 +46,20 @@ interface CachedData {
 function MainAppContent() {
   const { isDark } = useTheme();
   const [catalog, setCatalog] = useState<MasterCatalog>(() => {
-    return groupByRubro(FALLBACK_PRODUCTS);
+    try {
+      const rawCache = localStorage.getItem(CACHE_KEY);
+      if (rawCache) {
+        const parsedCache: CachedData = JSON.parse(rawCache);
+        if (parsedCache.data?.productos?.length > 0) {
+          return parsedCache.data;
+        }
+      }
+    } catch {
+      // Ignorar error de acceso a localStorage
+    }
+    return DEFAULT_INITIAL_CATALOG;
   });
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedRubro, setSelectedRubro] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<ProductItem | null>(null);

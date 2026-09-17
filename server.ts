@@ -8,6 +8,9 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+/*
+// =========================================================================
+// CONFIGURACIÓN DE REFERENCIA A GOOGLE SHEETS (Preservado para modo placebo):
 // Sanitiza y extrae el ID de Google Sheets tanto si el usuario coloca el ID solo o la URL completa
 function extractSheetId(raw?: string): string {
   if (!raw) return '1U8uctMTYdOuKDH4jEwRqLgyaXZMG-6YjGO4Ov7AT_TA';
@@ -31,13 +34,19 @@ let catalogCache: {
 } | null = null;
 
 const CACHE_TTL_MS = 60 * 1000; // 1 minuto de cache en servidor
+// =========================================================================
+*/
 
 /**
  * Endpoint de catálogo seguro:
- * El cliente solicita /api/catalog y el servidor descarga las solapas
- * de Google Sheets sin que el ID ni la URL de Google aparezcan en el navegador.
+ * MODO PLACEBO DEMO (Activo en esta instancia para carga holgada e inmediata):
+ * El código que realiza la consulta a Google Sheets se mantiene completamente
+ * preservado pero comentado, sirviendo de plantilla para futuros clientes.
  */
 app.get('/api/catalog', async (_req: Request, res: Response) => {
+  /*
+  // =========================================================================
+  // CÓDIGO DE REFERENCIA A GOOGLE SHEETS (Preservado y comentado para modo placebo):
   try {
     const now = Date.now();
     if (catalogCache && now - catalogCache.timestamp < CACHE_TTL_MS) {
@@ -68,7 +77,6 @@ app.get('/api/catalog', async (_req: Request, res: Response) => {
     if (resProductos.status === 'fulfilled' && resProductos.value.ok) {
       productosCsv = await resProductos.value.text();
     } else {
-      // Intento con endpoint por defecto sin parámetro de solapa
       const fallbackUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
       const fallbackRes = await fetch(fallbackUrl);
       if (fallbackRes.ok) {
@@ -105,6 +113,43 @@ app.get('/api/catalog', async (_req: Request, res: Response) => {
       error: 'Error interno del servidor al procesar el catálogo',
     });
   }
+  // =========================================================================
+  */
+
+  // Respuesta placebo instantánea
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  return res.json({
+    success: true,
+    placebo: true,
+    rubrosCsv: `"id_rubro","rubro","color","descrip"
+"1","COMBOS","#C91810","(Rojo institucional)"
+"1","LOMOS","#e84393","(Rosa fucsia)"
+"2","HAMBURGUESAS","#00b6b6","(Turquesa / Teal)"
+"3","PIZZAS","#7c5cbf","(Violeta / Púrpura)"
+"4","EMPANADAS","#5fbf8b","(Verde esmeralda / menta)"
+"5","MENÚ DEL DÍA","#C91810","(Rojo institucional)"
+"6","BEBIDAS","#0055A4","(Azul clásico)"`,
+    productosCsv: `"id","rubro","nombre","detalle_1","detalle_2","precio","color","activo","imagen"
+"1","LOMOS","Lomo completo XX","Pan Frances/Arabe","lechuga, tomate, condimentos","18000","","SI","imgi-26-default.jpg"
+"2","LOMOS","Lomo especial","Pan Frances/Arabe","lechuga, tomate, condimentos, huevo, jamon","22000","","SI","imgi-27-default.jpg"
+"3","HAMBURGUESAS","Cheddar","1 medallon, tomate, lechuga","condimentos","10000","","SI","imgi-28-default.jpg"
+"4","HAMBURGUESAS","Doble carne Cheddar","2 medallones, tomate, lechuga","condimentos","15000","","SI","imgi-29-default.jpg"
+"5","PIZZAS","Muzzarela 8 porciones","","","10000","","SI","imgi-30-default.jpg"
+"6","PIZZAS","Especial 8 porciones","","","15000","","SI","imgi-31-default.jpg"
+"7","EMPANADAS","Carne","Por docena","","12000","","SI","imgi-32-default.jpg"
+"8","EMPANADAS","Jamon y queso","Por docena","","12000","","SI","imgi-33-default.jpg"
+"9","COMBOS","Combo 1","2 lomos","Papas chicas","36000","","SI","imgi-20-default.jpg"
+"10","COMBOS","Combo 2","Lomo especial","Papas chicas","22000","","SI","imgi-21-default.jpg"
+"11","COMBOS","Combo 3","Burguer Cheddar","Papas chicas","10000","","SI","imgi-22-default.jpg"
+"12","COMBOS","Combo 4","1 muzza","1 doc empanadas","25000","","SI","imgi-23-default.jpg"
+"13","COMBOS","Combo 5","2 muzzas","","20000","","SI","imgi-24-default.jpg"
+"14","COMBOS","Combo 6","1 muzza + 1/2 empanadas","Papas chicas","15000","","SI","imgi-25-default.jpg"
+"15","COMBOS","Combo 7","2 docenas empanadas carne","","20000","","SI","imgi-32-default.jpg"
+"16","MENÚ DEL DÍA","Lasagna","Salsa","","8000","","SI","imgi-34-default.jpg"
+"17","MENÚ DEL DÍA","Canelones","Salsa","","8000","","SI","imgi-35-default.jpg"
+"18","MENÚ DEL DÍA","Mila de pollo ","Papas fritas","","8000","","SI","imgi-36-default.jpg"
+"19","MENÚ DEL DÍA","Merluza a la romana ","Papas fritas","","8000","","SI","imgi-37-default.jpg"`
+  });
 });
 
 // Endpoint de salud

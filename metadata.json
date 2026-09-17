@@ -1,6 +1,6 @@
 {
   "name": "Cuadra app",
-  "description": "Cuadra: plataforma de pedidos para negocios de cercanía",
+  "description": "Cuadra: plataforma de pedidos por Whatsapp para negocios de cercanía",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

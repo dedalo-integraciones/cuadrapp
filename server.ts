@@ -173,7 +173,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor Sabor Casero corriendo en el puerto ${PORT}`);
+    console.log(`Servidor Dédalo Integraciones corriendo en el puerto ${PORT}`);
   });
 }
 

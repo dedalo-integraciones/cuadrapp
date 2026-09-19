@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
           <img
             id="header-hero-img"
             src="/images/hero.webp"
-            alt="Sabor Casero"
+            alt="Dédalo Integraciones"
             referrerPolicy="no-referrer"
             loading="eager"
             fetchPriority="high"

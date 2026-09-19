@@ -1,6 +1,7 @@
 import React from 'react';
 import { PriceKiloItem } from '../types';
 import { WHATSAPP_PHONE_DISPLAY, WHATSAPP_PHONE_NUMBER, formatPriceARS } from '../utils/csvParser';
+import { WHATSAPP_MESSAGE_CONSULTATION } from '../config';
 import { Plus, Motorbike } from 'lucide-react';
 
 interface PricesSectionProps {
@@ -23,7 +24,7 @@ export const PricesSection: React.FC<PricesSectionProps> = ({
         {/* Big WhatsApp Number Button */}
         <a
           href={`https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(
-            '¡Hola Cuadra.app! Quisiera hacerles una consulta sobre los pedidos.'
+            WHATSAPP_MESSAGE_CONSULTATION
           )}`}
           target="_blank"
           rel="noopener noreferrer"

@@ -1,6 +1,6 @@
-# 📖 Manual de Uso y Administración — Sabor Casero
+# 📖 Manual de Uso y Administración — Dédalo Integraciones
 
-¡Bienvenido al manual oficial de **Sabor Casero**! Esta guía práctica está diseñada para que puedas administrar los productos, precios, fotos y pedidos de tu carta digital de forma rápida, sencilla y sin necesidad de conocimientos técnicos.
+¡Bienvenido al manual oficial de **Dédalo Integraciones**! Esta guía práctica está diseñada para que puedas administrar los productos, precios, fotos y pedidos de tu carta digital de forma rápida, sencilla y sin necesidad de conocimientos técnicos.
 
 ---
 
@@ -128,7 +128,7 @@ Como la aplicación está diseñada para verse principalmente en teléfonos celu
 Cuando un cliente arma un pedido desde la app y presiona **"Enviar Pedido por WhatsApp"**, te llegará un mensaje preformateado con este formato:
 
 ```text
-🛒 *NUEVO PEDIDO - SABOR CASERO*
+🛒 *NUEVO PEDIDO - DÉDALO INTEGRACIONES*
 ━━━━━━━━━━━━━━━━━━━━━
 👤 *Cliente:* Juan Pérez
 📞 *Teléfono:* 2611234567
@@ -164,4 +164,4 @@ La app cuenta con un sistema de respaldo inteligente (Fallback) que muestra los 
 
 ---
 
-*Desarrollado para **Sabor Casero** — Todos los derechos reservados.*
+*Desarrollado para **Dédalo Integraciones** — Todos los derechos reservados.*

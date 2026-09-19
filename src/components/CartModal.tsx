@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CartItem, OrderCustomerInfo } from '../types';
 import { formatPriceARS } from '../utils/csvParser';
-import { WHATSAPP_PHONE_NUMBER, COMPANY_NAME } from '../config';
+import { WHATSAPP_PHONE_NUMBER, WHATSAPP_MESSAGE_ORDER } from '../config';
 import { useTheme } from '../context/ThemeContext';
 import { X, Trash2, Plus, Minus, ShoppingCart, MapPin, Store, User, ArrowRight } from 'lucide-react';
 
@@ -60,7 +60,7 @@ export const CartModal: React.FC<CartModalProps> = ({
   const handleSendWhatsApp = () => {
     if (items.length === 0) return;
 
-    let message = `*¡Hola ${COMPANY_NAME}! Quiero hacer un pedido:*\n\n`;
+    let message = `${WHATSAPP_MESSAGE_ORDER}\n\n`;
 
     items.forEach((item, index) => {
       message += `*${index + 1}. ${item.nombre}* (x${item.cantidad})\n`;

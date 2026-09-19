@@ -11,8 +11,9 @@ import {
   ADDRESS,
   WHATSAPP_PHONE_DISPLAY,
   WHATSAPP_PHONE_NUMBER,
-  INSTAGRAM_HANDLE,
-  INSTAGRAM_URL,
+  WHATSAPP_MESSAGE_CONSULTATION,
+  FACEBOOK_HANDLE,
+  FACEBOOK_URL,
   MAPS_URL,
   DEDALO_URL,
 } from './config';
@@ -29,7 +30,7 @@ const Toast = lazy(() => import('./components/Toast'));
 const CategoryDrawer = lazy(() => import('./components/CategoryDrawer'));
 const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'));
 
-const CACHE_KEY = 'sabor_casero_master_catalog_placebo_v5';
+const CACHE_KEY = 'dedalo_integraciones_master_catalog_v1';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos en milisegundos
 
 // Catálogo precomputado inmediatamente disponible en memoria para carga instantánea
@@ -216,7 +217,7 @@ function MainAppContent() {
 
       {/* Main Mobile App Frame */}
       <main
-        className={`w-full max-w-[390px] min-h-screen shadow-2xl relative flex flex-col pb-24 overflow-x-hidden border-x transition-colors duration-300 ${
+        className={`w-full max-w-[390px] min-h-screen shadow-2xl relative flex flex-col pb-20 overflow-x-hidden border-x transition-colors duration-300 ${
           isDark
             ? 'bg-[#040706] border-stone-800/80 text-white'
             : 'bg-[#fafafa] border-stone-300 text-stone-900'
@@ -360,7 +361,7 @@ function MainAppContent() {
           <a
             id="footer-whatsapp-card"
             href={`https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(
-              '¡Hola Sabor Casero! Quiero consultar sobre el menú y los pedidos.'
+              WHATSAPP_MESSAGE_CONSULTATION
             )}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -399,7 +400,7 @@ function MainAppContent() {
 
         {/* Bottom Credits / Note */}
         <footer
-          className={`mt-2 pb-4 text-center text-[11px] space-y-1.5 px-3 transition-colors duration-300 ${
+          className={`mt-1 pb-1 text-center text-[11px] space-y-1 px-3 transition-colors duration-300 ${
             isDark ? 'text-stone-400' : 'text-stone-600'
           }`}
         >
@@ -417,16 +418,14 @@ function MainAppContent() {
           </p>
           <p>
             <a
-              href={INSTAGRAM_URL}
+              id="footer-facebook-link"
+              href={FACEBOOK_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-bold text-pink-500 hover:text-pink-600 transition-colors"
+              className="inline-flex items-center gap-1 font-bold text-[#1877F2] hover:text-[#166fe5] transition-colors"
             >
-              <span>{INSTAGRAM_HANDLE}</span>
+              <span>{FACEBOOK_HANDLE}</span>
             </a>
-          </p>
-          <p className={isDark ? 'text-stone-400' : 'text-stone-600'}>
-            Los pedidos se envían directamente por WhatsApp desde el carrito.
           </p>
           <p className={`pt-0.5 ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
             <a
@@ -447,7 +446,38 @@ function MainAppContent() {
               </strong>
             </a>
           </p>
-          <p className="pt-1">
+          {/* Logo institucional según tema */}
+          <div className="pt-0.5 pb-0.5 flex justify-center items-center">
+            <a
+              id="footer-brand-logo-link"
+              href={DEDALO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Dédalo Integraciones"
+              className="inline-block transition-transform duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <img
+                id="footer-brand-logo"
+                src={isDark ? '/logo-w.webp' : '/logo-b.webp'}
+                alt="Dédalo Integraciones"
+                width={48}
+                height={48}
+                className="w-12 h-12 object-contain select-none opacity-90 hover:opacity-100 transition-opacity"
+                loading="lazy"
+              />
+            </a>
+          </div>
+
+          <p
+            id="footer-cuadra-tagline"
+            className={`text-[10.5px] leading-tight px-2 font-medium ${
+              isDark ? 'text-stone-400' : 'text-stone-600'
+            }`}
+          >
+            <strong className={isDark ? 'text-stone-200 font-bold' : 'text-stone-800 font-bold'}>Cuadra:</strong> Plataforma de pedidos por Whatsapp para negocios de cercanía
+          </p>
+
+          <p className="pt-0.5">
             <button
               id="refresh-cache-button"
               type="button"
@@ -471,7 +501,7 @@ function MainAppContent() {
           </p>
         </footer>
 
-        {/* Floating Dock: WhatsApp, Instagram & Cart */}
+        {/* Floating Dock: WhatsApp, Facebook & Cart */}
         <FloatingCart
           itemCount={totalItemsCount}
           totalPrice={totalPrice}

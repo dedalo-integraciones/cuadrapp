@@ -1,9 +1,9 @@
 import React from 'react';
-import { ShoppingCart, Instagram, MapPin } from 'lucide-react';
+import { ShoppingCart, Facebook, MapPin } from 'lucide-react';
 import {
   WHATSAPP_PHONE_NUMBER,
-  COMPANY_NAME,
-  INSTAGRAM_URL,
+  WHATSAPP_MESSAGE_CONSULTATION,
+  FACEBOOK_URL,
   MAPS_URL,
 } from '../config';
 
@@ -20,13 +20,13 @@ export const FloatingCart: React.FC<FloatingCartProps> = ({
   return (
     <div className="fixed bottom-4 left-0 right-0 z-40 max-w-[390px] mx-auto px-3 pointer-events-none">
       <div className="flex items-center justify-between gap-2">
-        {/* Floating Action Buttons: WhatsApp, Instagram & Google Maps */}
+        {/* Floating Action Buttons: WhatsApp, Facebook & Google Maps */}
         <div className="flex items-center gap-2">
           {/* WhatsApp Button */}
           <a
             id="floating-whatsapp-button"
             href={`https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(
-              `¡Hola ${COMPANY_NAME}! Quiero consultar sobre el menú y los pedidos.`
+              WHATSAPP_MESSAGE_CONSULTATION
             )}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -39,17 +39,17 @@ export const FloatingCart: React.FC<FloatingCartProps> = ({
             </svg>
           </a>
 
-          {/* Instagram Button */}
+          {/* Facebook Button */}
           <a
-            id="floating-instagram-button"
-            href={INSTAGRAM_URL}
+            id="floating-facebook-button"
+            href={FACEBOOK_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] hover:opacity-90 text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
-            title="Seguinos en Instagram"
-            aria-label="Seguinos en Instagram"
+            className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
+            title="Seguinos en Facebook"
+            aria-label="Seguinos en Facebook"
           >
-            <Instagram className="w-[21px] h-[21px] stroke-[2.2]" />
+            <Facebook className="w-[21px] h-[21px] stroke-[2.2]" />
           </a>
 
           {/* Google Maps Button */}

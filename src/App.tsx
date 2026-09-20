@@ -46,6 +46,36 @@ interface CachedData {
 
 function MainAppContent() {
   const { isDark } = useTheme();
+
+  // Responsive / Embedding detection
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const isEmbedded = window.self !== window.top;
+      const forceMobile = params.has('forceMobile') || isEmbedded;
+      return forceMobile || window.innerWidth < 768;
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const isEmbedded = window.self !== window.top;
+        const forceMobile = params.has('forceMobile') || isEmbedded;
+        setIsMobile(forceMobile || window.innerWidth < 768);
+      } catch {
+        setIsMobile(true);
+      }
+    };
+
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
   const [catalog, setCatalog] = useState<MasterCatalog>(() => {
     try {
       const rawCache = localStorage.getItem(CACHE_KEY);
@@ -204,7 +234,9 @@ function MainAppContent() {
 
   return (
     <div
-      className={`min-h-screen font-poppins flex justify-center selection:bg-rose-500 selection:text-white transition-colors duration-300 ${
+      id="app-root-container"
+      data-mobile={isMobile ? 'true' : 'false'}
+      className={`min-h-screen font-poppins flex justify-center selection:bg-rose-500 selection:text-white transition-colors duration-300 w-full overflow-x-hidden ${
         isDark ? 'bg-[#000000]' : 'bg-[#e4e4e7]'
       }`}
     >
@@ -217,7 +249,8 @@ function MainAppContent() {
 
       {/* Main Mobile App Frame */}
       <main
-        className={`w-full max-w-[390px] min-h-screen shadow-2xl relative flex flex-col pb-20 overflow-x-hidden border-x transition-colors duration-300 ${
+        id="main-app-frame"
+        className={`w-full max-w-[390px] min-h-screen shadow-2xl relative flex flex-col pb-20 overflow-x-hidden border-x transition-colors duration-300 mx-auto ${
           isDark
             ? 'bg-[#040706] border-stone-800/80 text-white'
             : 'bg-[#fafafa] border-stone-300 text-stone-900'

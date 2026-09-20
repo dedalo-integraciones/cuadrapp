@@ -79,7 +79,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div
         id={`product-detail-modal-${product.id}`}
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-[370px] sm:max-w-[400px] max-h-[90vh] flex flex-col rounded-3xl border-2 shadow-2xl overflow-hidden transition-all duration-300 z-10 ${
+        className={`relative w-full max-w-[390px] max-h-[90vh] flex flex-col rounded-3xl border-2 shadow-2xl overflow-hidden transition-all duration-300 z-10 ${
           isDark
             ? 'bg-[#0a0f0d] border-stone-800 text-white'
             : 'bg-white border-stone-300 text-stone-900'

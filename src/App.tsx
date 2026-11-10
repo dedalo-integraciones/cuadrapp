@@ -1,202 +1,122 @@
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
-import { ProductItem, CartItem, MasterCatalog } from './types';
+import React, { useCallback, useEffect, useMemo, useState, Suspense, lazy } from 'react';
+import type { CartItem, CatalogoRespuesta, FiltroCatalogo, Producto } from './types';
+import { catalogoDeRespaldo } from './utils/csvParser';
+import { fetchCatalogo, ErrorCatalogo } from './services/catalogoService';
 import {
-  FALLBACK_PRODUCTS,
-  fetchMasterCatalog,
-  groupByRubro,
-  parseRubrosCSV,
-} from './utils/csvParser';
-import {
-  COMPANY_NAME,
   ADDRESS,
-  WHATSAPP_PHONE_DISPLAY,
-  WHATSAPP_PHONE_NUMBER,
-  WHATSAPP_MESSAGE_CONSULTATION,
   FACEBOOK_HANDLE,
   FACEBOOK_URL,
   MAPS_URL,
-  DEDALO_URL,
+  tenantActual,
 } from './config';
 import Header from './components/Header';
 import MenuSection from './components/MenuSection';
 import FloatingCart from './components/FloatingCart';
 import { ThemeSwitch } from './components/ThemeSwitch';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, WifiOff } from 'lucide-react';
 
-// Lazy load non-critical interactive modal components
 const CartModal = lazy(() => import('./components/CartModal'));
 const Toast = lazy(() => import('./components/Toast'));
 const CategoryDrawer = lazy(() => import('./components/CategoryDrawer'));
 const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'));
 
-const CACHE_KEY = 'dedalo_integraciones_master_catalog_v1';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos en milisegundos
-
-// Catálogo precomputado inmediatamente disponible en memoria para carga instantánea
-const DEFAULT_INITIAL_CATALOG: MasterCatalog = (() => {
-  const parsedRubros = parseRubrosCSV('');
-  return groupByRubro(FALLBACK_PRODUCTS, parsedRubros.rubrosMap);
-})();
+const TENANT = tenantActual();
+const CACHE_KEY = `cuadra_catalog_v2_${TENANT}`;
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CachedData {
   timestamp: number;
-  data: MasterCatalog;
+  data: CatalogoRespuesta;
+}
+
+function leerCache(): CatalogoRespuesta | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed: CachedData = JSON.parse(raw);
+    if (Date.now() - parsed.timestamp > CACHE_TTL_MS) return null;
+    if (!Array.isArray(parsed.data?.productos) || !parsed.data?.tenant) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
 }
 
 function MainAppContent() {
   const { isDark } = useTheme();
 
-  // Responsive / Embedding detection
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const isEmbedded = window.self !== window.top;
-      const forceMobile = params.has('forceMobile') || isEmbedded;
-      return forceMobile || window.innerWidth < 768;
-    } catch {
-      return true;
-    }
-  });
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const isEmbedded = window.self !== window.top;
-        const forceMobile = params.has('forceMobile') || isEmbedded;
-        setIsMobile(forceMobile || window.innerWidth < 768);
-      } catch {
-        setIsMobile(true);
-      }
-    };
-
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
-  const [catalog, setCatalog] = useState<MasterCatalog>(() => {
-    try {
-      const rawCache = localStorage.getItem(CACHE_KEY);
-      if (rawCache) {
-        const parsedCache: CachedData = JSON.parse(rawCache);
-        if (parsedCache.data?.productos?.length > 0) {
-          return parsedCache.data;
-        }
-      }
-    } catch {
-      // Ignorar error de acceso a localStorage
-    }
-    return DEFAULT_INITIAL_CATALOG;
-  });
+  const [catalog, setCatalog] = useState<CatalogoRespuesta>(() => leerCache() || catalogoDeRespaldo());
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [selectedRubro, setSelectedRubro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<FiltroCatalogo>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-  const [selectedProductForDetail, setSelectedProductForDetail] = useState<ProductItem | null>(null);
+  const [selectedProductForDetail, setSelectedProductForDetail] = useState<Producto | null>(null);
 
-  // Cart state
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Fetch data from Google Sheet with 5-min localStorage cache and fallback
-  const fetchData = useCallback(async () => {
-    // 1. Verificar si existe caché válido en localStorage
-    try {
-      const rawCache = localStorage.getItem(CACHE_KEY);
-      if (rawCache) {
-        const parsedCache: CachedData = JSON.parse(rawCache);
-        const isFresh = Date.now() - parsedCache.timestamp < CACHE_TTL_MS;
-
-        if (isFresh && parsedCache.data?.productos?.length > 0) {
-          setCatalog(parsedCache.data);
-          setIsLoading(false);
-
-          // Pre-calentar imágenes en caché del navegador durante tiempo ocioso
-          if (typeof window !== 'undefined') {
-            const prewarm = () => {
-              parsedCache.data.productos.forEach((p) => {
-                if (p.imagen && p.imagen.trim()) {
-                  const img = new Image();
-                  img.src = p.imagen.trim();
-                }
-              });
-            };
-            if ('requestIdleCallback' in window) {
-              (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(prewarm);
-            } else {
-              setTimeout(prewarm, 500);
-            }
-          }
-          return;
-        }
+  const cargar = useCallback(async (forzar = false) => {
+    if (!forzar) {
+      const cache = leerCache();
+      if (cache) {
+        setCatalog(cache);
+        return;
       }
-    } catch {
-      // Si falla localStorage, continuar con el fetch normal
     }
 
-    // 2. Si el caché expiró o no existe, hacer el fetch a Google Sheets (solapas productos y rubros)
+    setIsLoading(true);
     try {
-      const masterCatalog = await fetchMasterCatalog();
-
-      if (masterCatalog.productos.length > 0) {
-        setCatalog(masterCatalog);
-
-        try {
-          const cachePayload: CachedData = {
-            timestamp: Date.now(),
-            data: masterCatalog,
-          };
-          localStorage.setItem(CACHE_KEY, JSON.stringify(cachePayload));
-        } catch {
-          // Ignorar errores de cuota o restricción de almacenamiento
-        }
+      const datos = await fetchCatalogo(TENANT);
+      setCatalog(datos);
+      setAviso(null);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: datos }));
+      } catch {
+        // Sin almacenamiento: la tienda sigue funcionando con la respuesta viva.
       }
-    } catch {
-      // 3. Fallback de contingencia con los datos predefinidos
-      const fallbackMaster = groupByRubro(FALLBACK_PRODUCTS);
-      setCatalog(fallbackMaster);
+    } catch (error) {
+      const mensaje =
+        error instanceof ErrorCatalogo ? error.message : 'No se pudo cargar el catálogo.';
+      setAviso(mensaje);
+      setCatalog((actual) => (actual.productos.length > 0 ? actual : catalogoDeRespaldo()));
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    void cargar();
+  }, [cargar]);
 
-  // Toast feedback trigger
   const showToast = (message: string) => {
     setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 2800);
+    setTimeout(() => setToastMessage(null), 2800);
   };
 
-  // Add product to Cart
-  const handleAddToCart = (product: ProductItem, quantity: number = 1) => {
+  const handleAddToCart = (product: Producto, quantity: number = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.itemId === product.id);
       if (existing) {
         return prev.map((item) =>
           item.id === existing.id ? { ...item, cantidad: item.cantidad + quantity } : item
         );
-      } else {
-        const partes = [product.detalle_1, product.detalle_2].filter(Boolean);
-        const newItem: CartItem = {
-          id: `${product.rubro}-${product.id}-${Date.now()}`,
-          itemId: product.id,
-          rubro: product.rubro,
-          nombre: product.nombre,
-          descripcion: partes.join(' · '),
-          precio: product.precio,
-          cantidad: quantity,
-          color: product.color,
-          imagen: product.imagen,
-        };
-        return [...prev, newItem];
       }
+      const partes = [product.detalle_1, product.detalle_2].filter(Boolean);
+      const newItem: CartItem = {
+        id: `${product.id_categoria}-${product.id}-${Date.now()}`,
+        itemId: product.id,
+        rubro: product.rubro,
+        categoria: product.categoria,
+        nombre: product.nombre,
+        descripcion: partes.join(' · '),
+        precio: product.precio,
+        cantidad: quantity,
+        color: product.color,
+        imagen: product.imagen,
+      };
+      return [...prev, newItem];
     });
 
     showToast(
@@ -206,7 +126,6 @@ function MainAppContent() {
     );
   };
 
-  // Cart operations
   const handleUpdateQuantity = (id: string, delta: number) => {
     setCart((prev) =>
       prev
@@ -230,24 +149,71 @@ function MainAppContent() {
   };
 
   const totalItemsCount = cart.reduce((sum, item) => sum + item.cantidad, 0);
-  const totalPrice = cart.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+
+  const tenant = catalog.tenant;
+  const simbolo = tenant.moneda_simbolo || '$';
+  const mostrarPrecios = tenant.mostrar_precios !== false;
+  const numeroWhatsapp = tenant.whatsapp_pedidos || tenant.whatsapp || '';
+  const direccionTexto =
+    [
+      tenant.direccion.linea1,
+      tenant.direccion.linea2,
+      tenant.direccion.localidad,
+      tenant.direccion.provincia,
+      tenant.direccion.pais,
+    ]
+      .filter(Boolean)
+      .join(', ') || ADDRESS;
+  const facebookUrl =
+    typeof tenant.brand.facebook === 'string' && tenant.brand.facebook
+      ? tenant.brand.facebook
+      : FACEBOOK_URL;
+  const mapsUrl = direccionTexto
+    ? `https://maps.google.com/?q=${encodeURIComponent(direccionTexto)}`
+    : MAPS_URL;
+  const mensajeConsulta = `¡Hola ${tenant.name}! Quiero hacer una consulta.`;
+
+  const rubrosPorId = useMemo(() => {
+    const mapa = new Map<number, string>();
+    catalog.rubros.forEach((rubro) => mapa.set(rubro.id, rubro.rubro));
+    return mapa;
+  }, [catalog.rubros]);
+
+  const productosPorCategoria = useMemo(() => {
+    const mapa = new Map<number, Producto[]>();
+    catalog.productos.forEach((producto) => {
+      const lista = mapa.get(producto.id_categoria) || [];
+      lista.push(producto);
+      mapa.set(producto.id_categoria, lista);
+    });
+    return mapa;
+  }, [catalog.productos]);
+
+  const categoriasVisibles = useMemo(() => {
+    return catalog.categorias.filter((categoria) => {
+      if (!filtro) return true;
+      if (filtro.tipo === 'rubro') return categoria.id_rubro === filtro.id;
+      return categoria.id === filtro.id;
+    });
+  }, [catalog.categorias, filtro]);
+
+  const secciones = categoriasVisibles.filter(
+    (categoria) => (productosPorCategoria.get(categoria.id)?.length || 0) > 0
+  );
 
   return (
     <div
       id="app-root-container"
-      data-mobile={isMobile ? 'true' : 'false'}
       className={`min-h-screen font-poppins flex justify-center selection:bg-rose-500 selection:text-white transition-colors duration-300 w-full overflow-x-hidden ${
         isDark ? 'bg-[#000000]' : 'bg-[#e4e4e7]'
       }`}
     >
-      {/* Toast Notification */}
       {toastMessage && (
         <Suspense fallback={null}>
           <Toast message={toastMessage} onOpenCart={() => setIsCartOpen(true)} />
         </Suspense>
       )}
 
-      {/* Main Mobile App Frame */}
       <main
         id="main-app-frame"
         className={`w-full max-w-[390px] min-h-screen shadow-2xl relative flex flex-col pb-20 overflow-x-hidden border-x transition-colors duration-300 mx-auto ${
@@ -256,41 +222,63 @@ function MainAppContent() {
             : 'bg-[#fafafa] border-stone-300 text-stone-900'
         }`}
       >
-        {/* Full-width Hero and Action Buttons (Rubros & Carrito) */}
         <Header
           onOpenCart={() => setIsCartOpen(true)}
           itemCount={totalItemsCount}
           onOpenMenu={() => setIsMenuOpen(true)}
-          activeRubroFilter={selectedRubro}
+          activeRubroFilter={filtro?.etiqueta || null}
         />
 
-        {/* Outer Decorative Border Frame (Contenedor de las tarjetas) */}
+        {aviso && (
+          <div className="px-3 pt-2">
+            <div
+              className={`flex items-start gap-2 rounded-2xl border px-3 py-2 text-[11px] ${
+                isDark
+                  ? 'bg-amber-950/40 border-amber-700/50 text-amber-200'
+                  : 'bg-amber-50 border-amber-300 text-amber-900'
+              }`}
+            >
+              <WifiOff className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold">{aviso}</p>
+                <p className="opacity-80">Se muestra el catálogo de respaldo.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void cargar(true)}
+                className="font-black underline shrink-0 cursor-pointer"
+              >
+                Reintentar
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="p-2.5 pt-1.5">
           <div
             className={`rounded-[28px] border-[3.5px] p-2 sm:p-2.5 shadow-2xl relative transition-all duration-300 ${
-              isDark
-                ? 'border-white bg-[#040706]'
-                : 'border-stone-900 bg-white'
+              isDark ? 'border-white bg-[#040706]' : 'border-stone-900 bg-white'
             }`}
           >
-            {/* NUESTRO MENÚ Title Banner */}
             <div className="mt-1 mb-2 text-center select-none">
               <h2
                 className={`font-black text-2xl sm:text-3xl uppercase tracking-tight font-poppins transition-colors duration-300 ${
                   isDark ? 'text-white' : 'text-stone-950'
                 }`}
               >
-                Nuestro Menú
+                {tenant.textos.hero || 'Nuestro Menú'}
               </h2>
+              {tenant.textos.hero_bajada && (
+                <p className={`text-[11px] font-medium mt-0.5 ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
+                  {tenant.textos.hero_bajada}
+                </p>
+              )}
             </div>
 
-            {/* Active Filter Pill (if a category is filtered) */}
-            {selectedRubro && (
+            {filtro && (
               <div
                 className={`mt-1 mb-2 flex items-center justify-between border px-3 py-1.5 rounded-full transition-colors duration-300 ${
-                  isDark
-                    ? 'bg-stone-900/90 border-stone-700'
-                    : 'bg-stone-100 border-stone-300'
+                  isDark ? 'bg-stone-900/90 border-stone-700' : 'bg-stone-100 border-stone-300'
                 }`}
               >
                 <span
@@ -298,11 +286,11 @@ function MainAppContent() {
                     isDark ? 'text-stone-100' : 'text-stone-900'
                   }`}
                 >
-                  Filtrando: {selectedRubro}
+                  {filtro.tipo === 'rubro' ? 'Rubro' : 'Categoría'}: {filtro.etiqueta}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setSelectedRubro(null)}
+                  onClick={() => setFiltro(null)}
                   className={`text-[11px] font-bold underline cursor-pointer transition-colors duration-300 ${
                     isDark ? 'text-stone-400 hover:text-white' : 'text-stone-600 hover:text-stone-950'
                   }`}
@@ -312,90 +300,63 @@ function MainAppContent() {
               </div>
             )}
 
-            {/* Menu Sections - 1 section per rubro */}
             <div className="mt-2 space-y-5">
-              {isLoading ? (
-                // Loading Skeleton
+              {isLoading && catalog.productos.length === 0 ? (
                 <div className="space-y-5 animate-pulse">
-                  {[1, 2, 3, 4, 5].map((n) => (
+                  {[1, 2, 3].map((n) => (
                     <div key={n} className="space-y-3">
+                      <div className={`h-7 w-40 mx-auto rounded-full ${isDark ? 'bg-stone-800' : 'bg-stone-200'}`} />
                       <div
-                        className={`h-7 w-40 mx-auto rounded-full ${
-                          isDark ? 'bg-stone-800' : 'bg-stone-200'
+                        className={`h-40 rounded-3xl border-2 p-3 ${
+                          isDark ? 'border-stone-800 bg-[#040706]' : 'border-stone-200 bg-white'
                         }`}
-                      ></div>
-                      <div
-                        className={`h-40 rounded-3xl border-2 p-3 flex flex-col justify-between ${
-                          isDark
-                            ? 'border-stone-800 bg-[#040706]'
-                            : 'border-stone-200 bg-white'
-                        }`}
-                      >
-                        <div
-                          className={`h-6 rounded w-full -mx-3 mb-2 ${
-                            isDark ? 'bg-stone-800' : 'bg-stone-200'
-                          }`}
-                        ></div>
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1 space-y-2">
-                            <div
-                              className={`h-3 rounded w-3/4 ${
-                                isDark ? 'bg-stone-800' : 'bg-stone-200'
-                              }`}
-                            ></div>
-                            <div
-                              className={`h-7 rounded-full w-28 mt-2 ${
-                                isDark ? 'bg-stone-800' : 'bg-stone-200'
-                              }`}
-                            ></div>
-                          </div>
-                          <div
-                            className={`w-24 h-20 rounded-xl ${
-                              isDark ? 'bg-stone-800' : 'bg-stone-200'
-                            }`}
-                          ></div>
-                        </div>
-                      </div>
+                      />
                     </div>
                   ))}
                 </div>
+              ) : secciones.length === 0 ? (
+                <div className="py-12 text-center space-y-2 px-4">
+                  <p className={`font-black text-base ${isDark ? 'text-white' : 'text-stone-900'}`}>
+                    No hay productos para mostrar
+                  </p>
+                  <p className={`text-xs ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
+                    Pruebe con otro rubro o categoría.
+                  </p>
+                  {filtro && (
+                    <button
+                      type="button"
+                      onClick={() => setFiltro(null)}
+                      className="mt-2 px-4 py-2 rounded-full bg-[#C8180F] text-white text-xs font-black cursor-pointer"
+                    >
+                      Ver toda la carta
+                    </button>
+                  )}
+                </div>
               ) : (
-                catalog.rubros
-                  .filter((rubro) => !selectedRubro || rubro === selectedRubro)
-                  .map((rubro) => {
-                    const rubroInfo = catalog.rubrosMap[rubro];
-                    return (
-                      <MenuSection
-                        key={rubro}
-                        rubro={rubro}
-                        rubroColor={rubroInfo?.color}
-                        items={catalog.productosPorRubro[rubro] || []}
-                        cart={cart}
-                        onAddToCart={handleAddToCart}
-                        onSelectProduct={(item) => setSelectedProductForDetail(item)}
-                      />
-                    );
-                  })
+                secciones.map((categoria) => (
+                  <MenuSection
+                    key={categoria.id}
+                    categoria={categoria}
+                    rubroNombre={rubrosPorId.get(categoria.id_rubro)}
+                    items={productosPorCategoria.get(categoria.id) || []}
+                    cart={cart}
+                    onAddToCart={handleAddToCart}
+                    onSelectProduct={(item) => setSelectedProductForDetail(item)}
+                    simbolo={simbolo}
+                    mostrarPrecios={mostrarPrecios}
+                  />
+                ))
               )}
             </div>
-
           </div>
         </div>
 
-        {/* Subtle Brand Divider Bar */}
-        <div
-          className={`w-full h-px my-2 transition-colors duration-300 ${
-            isDark ? 'bg-stone-800' : 'bg-stone-200'
-          }`}
-        ></div>
+        <div className={`w-full h-px my-2 transition-colors duration-300 ${isDark ? 'bg-stone-800' : 'bg-stone-200'}`} />
 
-        {/* Contact Section */}
         <div className="px-3 py-1">
           <a
             id="footer-whatsapp-card"
-            href={`https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(
-              WHATSAPP_MESSAGE_CONSULTATION
-            )}`}
+            href={`https://wa.me/${String(numeroWhatsapp).replace(/\D/g, '')}?text=${encodeURIComponent(mensajeConsulta)}`}
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-center justify-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-all duration-300 shadow-md group active:scale-[0.98] w-full ${
@@ -415,23 +376,21 @@ function MainAppContent() {
                   isDark ? 'text-white' : 'text-stone-950'
                 }`}
               >
-                {WHATSAPP_PHONE_DISPLAY}
+                {tenant.telefono || 'Pedidos por WhatsApp'}
               </div>
               <div
                 className={`text-[11px] uppercase tracking-wider font-bold mt-0.5 whitespace-nowrap transition-colors duration-300 ${
                   isDark ? 'text-emerald-400' : 'text-emerald-800'
                 }`}
               >
-                Pedidos y consultas por WhatsApp
+                {tenant.textos.atencion || 'Pedidos y consultas por WhatsApp'}
               </div>
             </div>
           </a>
         </div>
 
-        {/* Selector de modo claro / oscuro: Sol y Luna */}
         <ThemeSwitch />
 
-        {/* Bottom Credits / Note */}
         <footer
           className={`mt-1 pb-1 text-center text-[11px] space-y-1 px-3 transition-colors duration-300 ${
             isDark ? 'text-stone-400' : 'text-stone-600'
@@ -439,75 +398,26 @@ function MainAppContent() {
         >
           <p className="font-bold">
             <a
-              href={MAPS_URL}
+              href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={`inline-flex items-center gap-1 transition-colors ${
                 isDark ? 'text-stone-200 hover:text-white' : 'text-stone-800 hover:text-stone-950'
               }`}
             >
-              <span>{COMPANY_NAME} © {ADDRESS}</span>
+              <span>{tenant.name} © {direccionTexto}</span>
             </a>
           </p>
           <p>
             <a
               id="footer-facebook-link"
-              href={FACEBOOK_URL}
+              href={facebookUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-bold text-[#1877F2] hover:text-[#166fe5] transition-colors"
             >
               <span>{FACEBOOK_HANDLE}</span>
             </a>
-          </p>
-          <p className={`pt-0.5 ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
-            <a
-              id="powered-by-dedalo"
-              href={DEDALO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="powered by Dédalo"
-              className="group inline-flex items-center gap-1 transition-all duration-300 cursor-pointer select-none hover:scale-105 active:scale-95"
-            >
-              <span>powered by</span>
-              <strong
-                className={`font-bold transition-colors duration-300 ${
-                  isDark ? 'text-stone-200 group-hover:text-white' : 'text-stone-900 group-hover:text-black'
-                }`}
-              >
-                Dédalo
-              </strong>
-            </a>
-          </p>
-          {/* Logo institucional según tema */}
-          <div className="pt-0.5 pb-0.5 flex justify-center items-center">
-            <a
-              id="footer-brand-logo-link"
-              href={DEDALO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Dédalo Integraciones"
-              className="inline-block transition-transform duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <img
-                id="footer-brand-logo"
-                src={isDark ? '/logo-w.webp' : '/logo-b.webp'}
-                alt="Dédalo Integraciones"
-                width={48}
-                height={48}
-                className="w-12 h-12 object-contain select-none opacity-90 hover:opacity-100 transition-opacity"
-                loading="lazy"
-              />
-            </a>
-          </div>
-
-          <p
-            id="footer-cuadra-tagline"
-            className={`text-[10.5px] leading-tight px-2 font-medium ${
-              isDark ? 'text-stone-400' : 'text-stone-600'
-            }`}
-          >
-            <strong className={isDark ? 'text-stone-200 font-bold' : 'text-stone-800 font-bold'}>Cuadra:</strong> Plataforma de pedidos por Whatsapp para negocios de cercanía
           </p>
 
           <p className="pt-0.5">
@@ -518,30 +428,34 @@ function MainAppContent() {
                 try {
                   localStorage.removeItem(CACHE_KEY);
                 } catch {
-                  // Ignorar errores de localStorage
+                  // Sin almacenamiento: se recarga igual desde la API.
                 }
-                window.location.reload();
+                void cargar(true);
               }}
-              title="Actualizar precios manualmente"
-              aria-label="Actualizar precios manualmente"
-              className={`inline-flex items-center gap-1 text-[11px] cursor-pointer select-none transition-colors ${
+              title="Actualizar el catálogo"
+              aria-label="Actualizar el catálogo"
+              disabled={isLoading}
+              className={`inline-flex items-center gap-1 text-[11px] cursor-pointer select-none transition-colors disabled:opacity-50 ${
                 isDark ? 'text-stone-400 hover:text-white' : 'text-stone-600 hover:text-stone-950'
               }`}
             >
-              <RefreshCw className="w-3 h-3" />
-              <span className="uppercase tracking-widest font-bold">Actualizar</span>
+              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="uppercase tracking-widest font-bold">
+                {isLoading ? 'Actualizando' : 'Actualizar'}
+              </span>
             </button>
           </p>
         </footer>
 
-        {/* Floating Dock: WhatsApp, Facebook & Cart */}
         <FloatingCart
           itemCount={totalItemsCount}
-          totalPrice={totalPrice}
           onOpenCart={() => setIsCartOpen(true)}
+          whatsapp={numeroWhatsapp}
+          mensajeConsulta={mensajeConsulta}
+          facebookUrl={facebookUrl}
+          mapsUrl={mapsUrl}
         />
 
-        {/* Cart Drawer / Modal - Lazy loaded */}
         {isCartOpen && (
           <Suspense fallback={null}>
             <CartModal
@@ -551,29 +465,29 @@ function MainAppContent() {
               onUpdateQuantity={handleUpdateQuantity}
               onRemoveItem={handleRemoveItem}
               onClearCart={handleClearCart}
+              nombreNegocio={tenant.name}
+              whatsappPedidos={numeroWhatsapp}
+              simbolo={simbolo}
+              mostrarPrecios={mostrarPrecios}
             />
           </Suspense>
         )}
 
-        {/* Category Hamburger Drawer - Lazy loaded */}
         {isMenuOpen && (
           <Suspense fallback={null}>
             <CategoryDrawer
               isOpen={isMenuOpen}
               onClose={() => setIsMenuOpen(false)}
               rubros={catalog.rubros}
-              rubrosMap={catalog.rubrosMap}
-              selectedRubro={selectedRubro}
-              onSelectRubro={(r) => setSelectedRubro(r)}
-              productosPorRubro={Object.fromEntries(
-                catalog.rubros.map((r) => [r, catalog.productosPorRubro[r]?.length || 0])
-              )}
+              categorias={catalog.categorias}
+              productos={catalog.productos}
+              selected={filtro}
+              onSelect={setFiltro}
               totalProductsCount={catalog.productos.length}
             />
           </Suspense>
         )}
 
-        {/* Product Detail Modal - Lazy loaded */}
         {selectedProductForDetail && (
           <Suspense fallback={null}>
             <ProductDetailModal
@@ -582,12 +496,11 @@ function MainAppContent() {
               onClose={() => setSelectedProductForDetail(null)}
               onAddToCart={handleAddToCart}
               quantityInCart={
-                cart.find((c) => String(c.itemId) === String(selectedProductForDetail.id))?.cantidad || 0
+                cart.find((c) => c.itemId === selectedProductForDetail.id)?.cantidad || 0
               }
-              rubroColor={
-                selectedProductForDetail.color ||
-                catalog.rubrosMap[selectedProductForDetail.rubro]?.color
-              }
+              rubroColor={selectedProductForDetail.color}
+              simbolo={simbolo}
+              mostrarPrecios={mostrarPrecios}
             />
           </Suspense>
         )}

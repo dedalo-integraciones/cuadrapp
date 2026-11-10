@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { ProductItem } from '../types';
-import { formatPriceARS } from '../utils/csvParser';
+import { Producto } from '../types';
+import { colorSeguro, formatPrecio } from '../utils/csvParser';
 import { useTheme } from '../context/ThemeContext';
 import { X, Plus, Minus, Check } from 'lucide-react';
 import { ProductImage } from './ProductImage';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
-  product: ProductItem | null;
+  product: Producto | null;
   onClose: () => void;
-  onAddToCart: (product: ProductItem, quantity: number) => void;
+  onAddToCart: (product: Producto, quantity: number) => void;
   quantityInCart?: number;
   rubroColor?: string;
+  simbolo?: string;
+  mostrarPrecios?: boolean;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -21,6 +23,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
   quantityInCart = 0,
   rubroColor,
+  simbolo = '$',
+  mostrarPrecios = true,
 }) => {
   const { isDark } = useTheme();
   const [quantity, setQuantity] = useState(1);
@@ -53,7 +57,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   if (!isOpen || !product) return null;
 
-  const cardColor = product.color || rubroColor || '#C91810';
+  const cardColor = colorSeguro(product.color, rubroColor || '#C91810');
 
   const handleAdd = () => {
     onAddToCart(product, quantity);
@@ -107,6 +111,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full text-white shadow-xs"
               style={{ backgroundColor: cardColor }}
             >
+              {product.categoria}
+            </span>
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
               {product.rubro}
             </span>
 
@@ -146,15 +153,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 className="font-black text-2xl tracking-tight"
                 style={{ color: cardColor }}
               >
-                {formatPriceARS(product.precio)}
+                {mostrarPrecios ? formatPrecio(product.precio, simbolo) : 'Consultar'}
               </span>
-              <span
-                className={`text-xs font-semibold ${
-                  isDark ? 'text-stone-400' : 'text-stone-500'
-                }`}
-              >
-                por unidad
-              </span>
+              {mostrarPrecios && (
+                <span
+                  className={`text-xs font-semibold ${
+                    isDark ? 'text-stone-400' : 'text-stone-500'
+                  }`}
+                >
+                  por unidad
+                </span>
+              )}
             </div>
           </div>
 

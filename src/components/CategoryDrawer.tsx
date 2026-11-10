@@ -1,33 +1,32 @@
 import React, { useEffect } from 'react';
-import { RubroItem } from '../types';
-import { RUBRO_COLORS } from '../utils/csvParser';
+import { Categoria, FiltroCatalogo, Producto, Rubro } from '../types';
+import { colorSeguro } from '../utils/csvParser';
 import { useTheme } from '../context/ThemeContext';
 import { X, Layers, Check, Sparkles } from 'lucide-react';
 
 interface CategoryDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  rubros: string[];
-  selectedRubro: string | null;
-  onSelectRubro: (rubro: string | null) => void;
-  productosPorRubro: Record<string, number>;
+  rubros: Rubro[];
+  categorias: Categoria[];
+  productos: Producto[];
+  selected: FiltroCatalogo;
+  onSelect: (filtro: FiltroCatalogo) => void;
   totalProductsCount: number;
-  rubrosMap?: Record<string, RubroItem>;
 }
 
 export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
   isOpen,
   onClose,
   rubros,
-  selectedRubro,
-  onSelectRubro,
-  productosPorRubro,
+  categorias,
+  productos,
+  selected,
+  onSelect,
   totalProductsCount,
-  rubrosMap = {},
 }) => {
   const { isDark } = useTheme();
 
-  // Prevent background scrolling when open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -41,26 +40,36 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
 
   if (!isOpen) return null;
 
+  const contarCategoria = (idCategoria: number) =>
+    productos.filter((p) => p.id_categoria === idCategoria).length;
+
+  const contarRubro = (idRubro: number) =>
+    categorias
+      .filter((c) => c.id_rubro === idRubro)
+      .reduce((total, c) => total + contarCategoria(c.id), 0);
+
+  const elegir = (filtro: FiltroCatalogo) => {
+    onSelect(filtro);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-start">
-      {/* Backdrop */}
       <div
         id="category-drawer-backdrop"
         onClick={onClose}
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300"
       />
 
-      {/* Drawer Container aligned with the mobile frame */}
       <aside
         id="category-drawer-panel"
-        aria-label="Menú de Rubros y Categorías"
+        aria-label="Menú de rubros y categorías"
         className={`relative z-10 w-full max-w-[390px] h-full max-h-screen shadow-2xl flex flex-col border-r animate-in slide-in-from-left duration-300 overflow-hidden ${
           isDark
             ? 'bg-[#040706] text-white border-stone-800'
             : 'bg-stone-50 text-stone-900 border-stone-200 shadow-stone-300/30'
         }`}
       >
-        {/* Drawer Header */}
         <div className="p-4 bg-[#C8180F] text-white flex items-center justify-between shadow-md shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
@@ -68,7 +77,7 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base tracking-wide uppercase leading-tight font-poppins">
-                Rubros & Menú
+                Rubros y categorías
               </h3>
               <p className="text-[11px] text-white/80">Filtrar artículos del catálogo</p>
             </div>
@@ -85,34 +94,29 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
           </button>
         </div>
 
-        {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {/* Option: Ver Todo */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           <button
             id="filter-rubro-all"
             type="button"
-            onClick={() => {
-              onSelectRubro(null);
-              onClose();
-            }}
+            onClick={() => elegir(null)}
             className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-              selectedRubro === null
+              selected === null
                 ? isDark
                   ? 'bg-stone-900 border-[#C8180F] shadow-md'
                   : 'bg-white border-[#C8180F] shadow-sm'
                 : isDark
-                ? 'bg-[#0c1310] border-stone-800 hover:bg-stone-900'
-                : 'bg-white border-stone-200 hover:bg-stone-100'
+                  ? 'bg-[#0c1310] border-stone-800 hover:bg-stone-900'
+                  : 'bg-white border-stone-200 hover:bg-stone-100'
             }`}
           >
             <div className="flex items-center gap-3">
               <div
                 className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${
-                  selectedRubro === null
+                  selected === null
                     ? 'bg-[#C8180F] text-white shadow-xs'
                     : isDark
-                    ? 'bg-stone-800 text-stone-200'
-                    : 'bg-stone-200 text-stone-700'
+                      ? 'bg-stone-800 text-stone-200'
+                      : 'bg-stone-200 text-stone-700'
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
@@ -123,10 +127,10 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
                     isDark ? 'text-white' : 'text-stone-900'
                   }`}
                 >
-                  Todos los Rubros
+                  Toda la carta
                 </span>
                 <span className={`text-[11px] ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
-                  Ver carta completa
+                  Ver todos los rubros
                 </span>
               </div>
             </div>
@@ -139,96 +143,125 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
               >
                 {totalProductsCount}
               </span>
-              {selectedRubro === null && (
-                <Check className="w-4 h-4 text-[#C8180F] stroke-[3]" />
-              )}
+              {selected === null && <Check className="w-4 h-4 text-[#C8180F] stroke-[3]" />}
             </div>
           </button>
 
-          <div className="pt-2 pb-1">
-            <div
-              className={`text-[10px] uppercase font-bold tracking-wider px-1 ${
-                isDark ? 'text-stone-400' : 'text-stone-500'
-              }`}
-            >
-              Categorías ({rubros.length})
-            </div>
-          </div>
-
-          {/* List of Rubros */}
           {rubros.map((rubro) => {
-            const count = productosPorRubro[rubro] || 0;
-            const rubroInfo = rubrosMap[rubro];
-            const accentColor = rubroInfo?.color || RUBRO_COLORS[rubro] || '#C91810';
-            const isSelected = selectedRubro === rubro;
+            const accent = colorSeguro(rubro.color);
+            const cats = categorias.filter((c) => c.id_rubro === rubro.id);
+            const totalRubro = contarRubro(rubro.id);
+            const rubroElegido = selected?.tipo === 'rubro' && selected.id === rubro.id;
 
             return (
-              <button
-                key={rubro}
-                id={`filter-rubro-${rubro.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-                type="button"
-                onClick={() => {
-                  onSelectRubro(rubro);
-                  onClose();
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-                  isSelected
-                    ? isDark
-                      ? 'bg-stone-900 shadow-md'
-                      : 'bg-white shadow-sm'
-                    : isDark
-                    ? 'bg-[#0c1310] border-stone-800 hover:bg-stone-900'
-                    : 'bg-white border-stone-200 hover:bg-stone-100'
+              <div
+                key={rubro.id}
+                className={`rounded-2xl border-2 overflow-hidden transition-colors ${
+                  isDark ? 'border-stone-800 bg-[#0c1310]' : 'border-stone-200 bg-white'
                 }`}
-                style={{
-                  borderColor: isSelected ? accentColor : undefined,
-                }}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-xs"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    {rubro.charAt(0)}
-                  </div>
-                  <div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    elegir({ tipo: 'rubro', id: rubro.id, etiqueta: rubro.rubro })
+                  }
+                  className={`w-full flex items-center justify-between p-3 text-left transition-colors cursor-pointer ${
+                    rubroElegido
+                      ? isDark
+                        ? 'bg-stone-900'
+                        : 'bg-stone-100'
+                      : isDark
+                        ? 'hover:bg-stone-900'
+                        : 'hover:bg-stone-100'
+                  }`}
+                  style={{ borderLeft: `4px solid ${accent}` }}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
-                      className={`font-extrabold text-sm tracking-wide uppercase block ${
-                        isDark ? 'text-white' : 'text-stone-900'
-                      }`}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-xs shrink-0"
+                      style={{ backgroundColor: accent }}
                     >
-                      {rubro}
+                      {rubro.rubro.charAt(0)}
                     </span>
-                    <span
-                      className={`text-[11px] font-medium ${
-                        isDark ? 'text-stone-400' : 'text-stone-500'
-                      }`}
-                    >
-                      {count} {count === 1 ? 'producto' : 'productos'}
-                    </span>
+                    <div className="min-w-0">
+                      <span
+                        className={`font-extrabold text-sm tracking-wide uppercase block truncate ${
+                          isDark ? 'text-white' : 'text-stone-900'
+                        }`}
+                      >
+                        {rubro.rubro}
+                      </span>
+                      <span className={`text-[11px] ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
+                        {totalRubro} {totalRubro === 1 ? 'producto' : 'productos'}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                  {rubroElegido && <Check className="w-4 h-4 shrink-0" style={{ color: accent }} />}
+                </button>
 
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    {count}
-                  </span>
-                  {isSelected && (
-                    <Check
-                      className="w-4 h-4 stroke-[3]"
-                      style={{ color: accentColor }}
-                    />
+                <div className={`px-3 pb-3 pt-1 space-y-1.5 ${isDark ? 'bg-[#080b0a]' : 'bg-stone-50'}`}>
+                  {cats.length === 0 && (
+                    <p className={`text-[11px] px-1 py-1 ${isDark ? 'text-stone-500' : 'text-stone-500'}`}>
+                      Este rubro todavía no tiene categorías.
+                    </p>
                   )}
+                  {cats.map((categoria) => {
+                    const color = colorSeguro(categoria.color, accent);
+                    const count = contarCategoria(categoria.id);
+                    const activo = selected?.tipo === 'categoria' && selected.id === categoria.id;
+                    return (
+                      <button
+                        key={categoria.id}
+                        type="button"
+                        onClick={() =>
+                          elegir({
+                            tipo: 'categoria',
+                            id: categoria.id,
+                            etiqueta: categoria.categoria,
+                          })
+                        }
+                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl border text-left transition-all cursor-pointer ${
+                          activo
+                            ? isDark
+                              ? 'bg-stone-900 border-stone-600'
+                              : 'bg-white border-stone-400 shadow-sm'
+                            : isDark
+                              ? 'bg-transparent border-stone-800 hover:bg-stone-900'
+                              : 'bg-white/70 border-stone-200 hover:bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                          <span
+                            className={`text-xs font-bold truncate ${
+                              isDark ? 'text-stone-200' : 'text-stone-800'
+                            }`}
+                          >
+                            {categoria.categoria}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                              isDark ? 'bg-stone-800 text-stone-300' : 'bg-stone-200 text-stone-700'
+                            }`}
+                          >
+                            {count}
+                          </span>
+                          {activo && <Check className="w-3.5 h-3.5 stroke-[3]" style={{ color }} />}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
 
-        {/* Drawer Footer */}
         <div
           className={`p-3 border-t text-center text-xs ${
             isDark
@@ -236,7 +269,7 @@ export const CategoryDrawer: React.FC<CategoryDrawerProps> = ({
               : 'bg-stone-100 border-stone-200 text-stone-500'
           }`}
         >
-          Toca cualquier rubro para filtrar o ver directamente
+          Toque un rubro o una categoría para filtrar la carta.
         </div>
       </aside>
     </div>

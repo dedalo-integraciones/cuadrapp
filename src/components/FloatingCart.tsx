@@ -1,33 +1,34 @@
 import React from 'react';
 import { ShoppingCart, Facebook, MapPin } from 'lucide-react';
-import {
-  WHATSAPP_PHONE_NUMBER,
-  WHATSAPP_MESSAGE_CONSULTATION,
-  FACEBOOK_URL,
-  MAPS_URL,
-} from '../config';
+import { WHATSAPP_PHONE_NUMBER, WHATSAPP_MESSAGE_CONSULTATION } from '../config';
 
 interface FloatingCartProps {
   itemCount: number;
-  totalPrice?: number;
   onOpenCart: () => void;
+  whatsapp?: string;
+  mensajeConsulta?: string;
+  facebookUrl?: string;
+  mapsUrl?: string;
 }
 
 export const FloatingCart: React.FC<FloatingCartProps> = ({
   itemCount,
   onOpenCart,
+  whatsapp = '',
+  mensajeConsulta = WHATSAPP_MESSAGE_CONSULTATION,
+  facebookUrl = '',
+  mapsUrl = '',
 }) => {
+  const numero = String(whatsapp || '').replace(/\D/g, '') || WHATSAPP_PHONE_NUMBER;
+
   return (
     <div className="fixed bottom-4 left-0 right-0 z-40 max-w-[390px] mx-auto px-3 pointer-events-none">
       <div className="flex items-center justify-between gap-2">
-        {/* Floating Action Buttons: WhatsApp, Facebook & Google Maps */}
+        {/* Accesos rápidos del negocio */}
         <div className="flex items-center gap-2">
-          {/* WhatsApp Button */}
           <a
             id="floating-whatsapp-button"
-            href={`https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(
-              WHATSAPP_MESSAGE_CONSULTATION
-            )}`}
+            href={`https://wa.me/${numero}?text=${encodeURIComponent(mensajeConsulta)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
@@ -39,34 +40,35 @@ export const FloatingCart: React.FC<FloatingCartProps> = ({
             </svg>
           </a>
 
-          {/* Facebook Button */}
-          <a
-            id="floating-facebook-button"
-            href={FACEBOOK_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
-            title="Seguinos en Facebook"
-            aria-label="Seguinos en Facebook"
-          >
-            <Facebook className="w-[21px] h-[21px] stroke-[2.2]" />
-          </a>
+          {facebookUrl && (
+            <a
+              id="floating-facebook-button"
+              href={facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
+              title="Seguir en Facebook"
+              aria-label="Seguir en Facebook"
+            >
+              <Facebook className="w-[21px] h-[21px] stroke-[2.2]" />
+            </a>
+          )}
 
-          {/* Google Maps Button */}
-          <a
-            id="floating-maps-button"
-            href={MAPS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-[#EA4335] hover:bg-[#d33828] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
-            title="Ver ubicación en Google Maps"
-            aria-label="Ver ubicación en Google Maps"
-          >
-            <MapPin className="w-[21px] h-[21px] stroke-[2.2]" />
-          </a>
+          {mapsUrl && (
+            <a
+              id="floating-maps-button"
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto w-[42px] h-[42px] rounded-full bg-[#EA4335] hover:bg-[#d33828] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all flex-shrink-0"
+              title="Ver ubicación en Google Maps"
+              aria-label="Ver ubicación en Google Maps"
+            >
+              <MapPin className="w-[21px] h-[21px] stroke-[2.2]" />
+            </a>
+          )}
         </div>
 
-        {/* Floating Cart Button - Exact replica of the Header Top Cart Button */}
         <button
           id="floating-cart-button"
           type="button"
@@ -85,9 +87,7 @@ export const FloatingCart: React.FC<FloatingCartProps> = ({
               </span>
             )}
           </div>
-          <span className="font-black text-xs tracking-wider uppercase whitespace-nowrap">
-            Carrito
-          </span>
+          <span className="font-black text-xs tracking-wider uppercase whitespace-nowrap">Carrito</span>
         </button>
       </div>
     </div>

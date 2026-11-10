@@ -1,67 +1,75 @@
 import React from 'react';
-import { ProductItem, CartItem } from '../types';
-import { formatPriceARS, RUBRO_COLORS } from '../utils/csvParser';
+import { CartItem, Categoria, Producto } from '../types';
+import { colorSeguro, formatPrecio, RUBRO_COLORS } from '../utils/csvParser';
 import { Plus } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { ProductImage } from './ProductImage';
 
 interface MenuSectionProps {
-  rubro: string;
-  items: ProductItem[];
+  categoria: Categoria;
+  rubroNombre?: string;
+  items: Producto[];
   cart: CartItem[];
-  onAddToCart: (product: ProductItem) => void;
-  onSelectProduct?: (product: ProductItem) => void;
-  rubroColor?: string;
+  onAddToCart: (product: Producto) => void;
+  onSelectProduct?: (product: Producto) => void;
+  simbolo?: string;
+  mostrarPrecios?: boolean;
 }
 
 export const MenuSection: React.FC<MenuSectionProps> = ({
-  rubro,
+  categoria,
+  rubroNombre,
   items,
   cart,
   onAddToCart,
   onSelectProduct,
-  rubroColor,
+  simbolo = '$',
+  mostrarPrecios = true,
 }) => {
   const { isDark } = useTheme();
 
-  const sectionColor = rubroColor || RUBRO_COLORS[rubro] || '#C91810';
+  const sectionColor = colorSeguro(
+    categoria.color,
+    RUBRO_COLORS[categoria.categoria] || '#C91810'
+  );
+  const slug = categoria.categoria.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
   if (!items || items.length === 0) return null;
 
   return (
-    <section
-      id={`section-${rubro.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-      aria-labelledby={`heading-${rubro.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-      className="space-y-3 pt-2"
-    >
-      {/* Rubro Category Banner */}
-      <div className="flex items-center gap-2 px-1">
-        <div
-          className="h-6 w-2 rounded-full"
-          style={{ backgroundColor: sectionColor }}
-        />
-        <h2
-          id={`heading-${rubro.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-          className={`font-black text-lg sm:text-xl tracking-wider uppercase font-poppins transition-colors duration-300 ${
-            isDark ? 'text-white' : 'text-stone-950'
-          }`}
-        >
-          {rubro}
-        </h2>
+    <section id={`section-${slug}`} aria-labelledby={`heading-${slug}`} className="space-y-3 pt-2">
+      {/* Banner de categoría, con el rubro padre como referencia */}
+      <div className="flex items-start gap-2 px-1">
+        <div className="h-7 w-2 rounded-full mt-0.5" style={{ backgroundColor: sectionColor }} />
+        <div className="min-w-0">
+          {rubroNombre && (
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-stone-500' : 'text-stone-500'}`}>
+              {rubroNombre}
+            </p>
+          )}
+          <h2
+            id={`heading-${slug}`}
+            className={`font-black text-lg sm:text-xl tracking-wider uppercase font-poppins transition-colors duration-300 ${
+              isDark ? 'text-white' : 'text-stone-950'
+            }`}
+          >
+            {categoria.categoria}
+          </h2>
+        </div>
         <span
-          className="ml-auto text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white shadow-2xs"
+          className="ml-auto text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white shadow-2xs mt-1"
           style={{ backgroundColor: sectionColor }}
         >
           {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
         </span>
       </div>
 
-      {/* Grid of Product Cards */}
+      {/* Tarjetas de producto */}
       <div className="space-y-3">
         {items.map((item) => {
-          const itemInCart = cart.find((c) => String(c.itemId) === String(item.id));
+          const itemInCart = cart.find((c) => c.itemId === item.id);
           const quantityInCart = itemInCart ? itemInCart.cantidad : 0;
-          const cardColor = item.color || sectionColor;
+          const cardColor = colorSeguro(item.color, sectionColor);
 
           return (
             <article
@@ -80,13 +88,9 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
               className={`relative rounded-2xl border-2 transition-all duration-300 overflow-hidden shadow-md hover:shadow-lg flex flex-col justify-between cursor-pointer group hover:scale-[1.008] active:scale-[0.995] ${
                 isDark ? 'bg-[#040706]' : 'bg-white shadow-xs'
               }`}
-              style={{
-                borderColor: cardColor,
-              }}
+              style={{ borderColor: cardColor }}
             >
-              {/* Card Body */}
               <div className="p-3.5">
-                {/* Title and Pedir Button in the same row */}
                 <div
                   className={`flex items-center justify-between gap-2.5 pb-2 border-b transition-colors duration-300 ${
                     isDark ? 'border-stone-800/80' : 'border-stone-200'
@@ -109,13 +113,9 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                     }}
                     aria-label={`Agregar ${item.nombre} al carrito`}
                     className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-full text-white font-black text-xs shadow-xs transition-all active:scale-95 cursor-pointer flex-shrink-0 min-h-[34px] ${
-                      quantityInCart > 0
-                        ? 'bg-emerald-600 hover:bg-emerald-700'
-                        : 'hover:opacity-95'
+                      quantityInCart > 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'hover:opacity-95'
                     }`}
-                    style={{
-                      backgroundColor: quantityInCart > 0 ? undefined : cardColor,
-                    }}
+                    style={{ backgroundColor: quantityInCart > 0 ? undefined : cardColor }}
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[3]" />
                     <span>{quantityInCart > 0 ? 'Sumar' : 'Pedir'}</span>
@@ -130,9 +130,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                   </button>
                 </div>
 
-                {/* Details & Large Image Row */}
                 <div className="pt-2.5 flex items-center justify-between gap-3">
-                  {/* Left: Product Text Details & Price */}
                   <div className="flex-1 min-w-0 pr-1">
                     {(item.detalle_1 || item.detalle_2) && (
                       <div className="space-y-1 text-xs mb-2">
@@ -157,19 +155,17 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                       </div>
                     )}
 
-                    {/* Price Tag */}
                     <div className="flex items-center gap-2">
                       <span
                         className={`font-black text-xl tracking-tight transition-colors duration-300 ${
                           isDark ? 'text-white' : 'text-stone-950'
                         }`}
                       >
-                        {formatPriceARS(item.precio)}
+                        {mostrarPrecios ? formatPrecio(item.precio, simbolo) : 'Consultar'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Right: Big, spacious Image thumbnail with poster */}
                   <div className="flex-shrink-0">
                     <ProductImage
                       src={item.imagen}
@@ -177,9 +173,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                       posterSrc="/no-image.webp"
                       loading="eager"
                       containerClassName={`w-28 h-24 sm:w-32 sm:h-28 rounded-xl overflow-hidden border shadow-md transition-colors duration-300 ${
-                        isDark
-                          ? 'bg-stone-900 border-stone-800'
-                          : 'bg-stone-100 border-stone-200'
+                        isDark ? 'bg-stone-900 border-stone-800' : 'bg-stone-100 border-stone-200'
                       }`}
                     />
                   </div>

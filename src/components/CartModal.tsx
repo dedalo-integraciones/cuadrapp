@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CartItem, OrderCustomerInfo } from '../types';
-import { formatPriceARS } from '../utils/csvParser';
-import { WHATSAPP_PHONE_NUMBER, WHATSAPP_MESSAGE_ORDER } from '../config';
+import { formatPrecio } from '../utils/csvParser';
+import { WHATSAPP_PHONE_NUMBER } from '../config';
 import { useTheme } from '../context/ThemeContext';
 import { X, Trash2, Plus, Minus, ShoppingCart, MapPin, Store, User, ArrowRight } from 'lucide-react';
 
@@ -12,6 +12,10 @@ interface CartModalProps {
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
+  nombreNegocio: string;
+  whatsappPedidos?: string;
+  simbolo?: string;
+  mostrarPrecios?: boolean;
 }
 
 export const CartModal: React.FC<CartModalProps> = ({
@@ -21,6 +25,10 @@ export const CartModal: React.FC<CartModalProps> = ({
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
+  nombreNegocio,
+  whatsappPedidos = '',
+  simbolo = '$',
+  mostrarPrecios = true,
 }) => {
   const { isDark } = useTheme();
   const [customer, setCustomer] = useState<OrderCustomerInfo>({
@@ -60,19 +68,28 @@ export const CartModal: React.FC<CartModalProps> = ({
   const handleSendWhatsApp = () => {
     if (items.length === 0) return;
 
-    let message = `${WHATSAPP_MESSAGE_ORDER}\n\n`;
+    let message = `¡Hola ${nombreNegocio}! Quiero hacer el siguiente pedido:\n\n`;
 
     items.forEach((item, index) => {
       message += `*${index + 1}. ${item.nombre}* (x${item.cantidad})\n`;
       if (item.descripcion) {
         message += `   _${item.descripcion}_\n`;
       }
-      message += `   Subtotal: ${formatPriceARS(item.precio * item.cantidad)}\n\n`;
+      if (mostrarPrecios) {
+        message += `   Subtotal: ${formatPrecio(item.precio * item.cantidad, simbolo)}\n`;
+      }
+      message += `\n`;
     });
 
-    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `*TOTAL A PAGAR: ${formatPriceARS(totalPrice)}*\n`;
-    message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    if (mostrarPrecios) {
+      message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `*TOTAL A PAGAR: ${formatPrecio(totalPrice, simbolo)}*\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    } else {
+      message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `*Precios a confirmar por el negocio.*\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    }
 
     if (customer.nombre.trim()) {
       message += `👤 *Cliente:* ${customer.nombre.trim()}\n`;
@@ -90,8 +107,9 @@ export const CartModal: React.FC<CartModalProps> = ({
 
     message += `\n_Muchas gracias!_`;
 
+    const numero = String(whatsappPedidos || '').replace(/\D/g, '') || WHATSAPP_PHONE_NUMBER;
     const encodedText = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodedText}`;
+    const whatsappUrl = `https://wa.me/${numero}?text=${encodedText}`;
 
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
@@ -239,15 +257,21 @@ export const CartModal: React.FC<CartModalProps> = ({
                           isDark ? 'text-emerald-400' : 'text-emerald-600'
                         }`}
                       >
-                        {formatPriceARS(item.precio * item.cantidad)}
-                        {item.cantidad > 1 && (
-                          <span
-                            className={`text-[10px] font-normal ml-1 ${
-                              isDark ? 'text-stone-400' : 'text-stone-500'
-                            }`}
-                          >
-                            ({formatPriceARS(item.precio)} c/u)
-                          </span>
+                        {mostrarPrecios ? (
+                          <>
+                            {formatPrecio(item.precio * item.cantidad, simbolo)}
+                            {item.cantidad > 1 && (
+                              <span
+                                className={`text-[10px] font-normal ml-1 ${
+                                  isDark ? 'text-stone-400' : 'text-stone-500'
+                                }`}
+                              >
+                                ({formatPrecio(item.precio, simbolo)} c/u)
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className={isDark ? 'text-stone-400' : 'text-stone-500'}>Precio a confirmar</span>
                         )}
                       </p>
                     </div>
@@ -442,7 +466,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                   isDark ? 'text-white' : 'text-stone-950'
                 }`}
               >
-                {formatPriceARS(totalPrice)}
+                {mostrarPrecios ? formatPrecio(totalPrice, simbolo) : 'A confirmar'}
               </span>
             </div>
 

@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { autenticarAdmin } from "../../src/server/admin-auth";
-import { auditar } from "../../src/server/audit";
-import { imagenSegura, leerBody, metodo, responder, texto } from "../../src/server/http";
-import { resolverTenantSlug } from "../../src/db/tenant";
+import { autenticarAdmin } from "../../src/server/admin-auth.js";
+import { auditar } from "../../src/server/audit.js";
+import { imagenSegura, leerBody, metodo, responder, texto } from "../../src/server/http.js";
+import { resolverTenantSlug } from "../../src/db/tenant.js";
 
 /**
  * POST /api/admin/upload

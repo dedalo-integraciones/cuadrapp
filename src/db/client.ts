@@ -3,13 +3,16 @@ import { createClient, type Client } from "@libsql/client/web";
 /**
  * Crea el cliente libSQL remoto usando el transporte Web (HTTP/WS puro).
  *
- * Importante: NO usar "@libsql/client" (entrada de Node) en código que
- * empaqueta Vercel. Esa entrada importa `libsql`, que resuelve un binario
- * nativo por plataforma con un `require` dinámico; el trazador de Vercel
- * (@vercel/nft) no lo incluye en la función y el handler falla al importar
- * (500 FUNCTION_INVOCATION_FAILED).
+ * Notas para Vercel:
+ * - Vercel compila las funciones a `.js` y las ejecuta como ESM (package.json
+ *   tiene "type": "module"). Por eso TODOS los imports relativos del servidor
+ *   deben llevar la extensión `.js` (ej: `./core.js`). Sin extensión, la
+ *   función muere al importar con ERR_MODULE_NOT_FOUND y Vercel devuelve
+ *   500 FUNCTION_INVOCATION_FAILED.
+ * - Este cliente no necesita el binario nativo de `libsql`, así que el
+ *   empaquetado de la función queda más liviano.
  *
- * Este cliente atiende `libsql://`, `https://`, `http://` y `wss://`.
+ * Atiende `libsql://`, `https://`, `http://` y `wss://`.
  * Las URL `file:` locales no están soportadas.
  */
 export function crearClienteLibsql(url: string, token?: string | null): Client {

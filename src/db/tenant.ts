@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
-import { crearClienteLibsql } from "./client";
-import { getCoreClient } from "./core";
+import { crearClienteLibsql } from "./client.js";
+import { getCoreClient } from "./core.js";
 
 export const TENANT_DEFAULT = "cuadra";
 const TENANT_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;

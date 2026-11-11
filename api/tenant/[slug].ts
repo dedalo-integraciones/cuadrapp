@@ -1,5 +1,5 @@
-import { buscarTenant, datosPublicosTenant, tenantVigente } from "../../src/db/tenant";
-import { encabezado, metodo, responder } from "../../src/server/http";
+import { buscarTenant, datosPublicosTenant, tenantVigente } from "../../src/db/tenant.js";
+import { encabezado, metodo, responder } from "../../src/server/http.js";
 
 /** GET /api/tenant/:slug · datos públicos del negocio (sin infraestructura). */
 export default async function handler(req: any, res: any) {

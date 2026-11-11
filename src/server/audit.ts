@@ -1,4 +1,4 @@
-import { getCoreClient } from "../db/core";
+import { getCoreClient } from "../db/core.js";
 
 /** Auditoría best-effort: nunca rompe la operación principal. */
 export async function auditar(

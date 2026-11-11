@@ -1,11 +1,11 @@
-import { getCoreClient } from "../db/core";
+import { getCoreClient } from "../db/core.js";
 import {
   buscarTenant,
   getTenantClient,
   tenantVigente,
   type TenantRow,
-} from "../db/tenant";
-import { texto } from "./http";
+} from "../db/tenant.js";
+import { texto } from "./http.js";
 import type { Client } from "@libsql/client";
 
 export type UsuarioAdmin = {

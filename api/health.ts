@@ -1,6 +1,6 @@
-import { getCoreClient } from "../src/db/core";
-import { buscarTenant, getTenantClient, TENANT_DEFAULT } from "../src/db/tenant";
-import { metodo, responder } from "../src/server/http";
+import { getCoreClient } from "../src/db/core.js";
+import { buscarTenant, getTenantClient, TENANT_DEFAULT } from "../src/db/tenant.js";
+import { metodo, responder } from "../src/server/http.js";
 
 /**
  * GET /api/health

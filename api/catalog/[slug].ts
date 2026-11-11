@@ -3,8 +3,8 @@ import {
   datosPublicosTenant,
   getTenantClient,
   tenantVigente,
-} from "../../src/db/tenant";
-import { encabezado, metodo, responder } from "../../src/server/http";
+} from "../../src/db/tenant.js";
+import { encabezado, metodo, responder } from "../../src/server/http.js";
 
 /**
  * GET /api/catalog/:slug

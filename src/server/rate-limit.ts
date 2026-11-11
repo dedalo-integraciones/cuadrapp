@@ -1,4 +1,4 @@
-import { getCoreClient } from "../db/core";
+import { getCoreClient } from "../db/core.js";
 
 export const MAX_INTENTOS = 5;
 export const VENTANA_MS = 15 * 60 * 1000;

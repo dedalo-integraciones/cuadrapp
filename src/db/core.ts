@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import { crearClienteLibsql } from "./client";
+import { crearClienteLibsql } from "./client.js";
 
 /**
  * Cliente de la base core (plataforma). SOLO servidor.

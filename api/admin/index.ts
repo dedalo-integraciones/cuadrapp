@@ -1,14 +1,14 @@
 import bcrypt from "bcryptjs";
-import { getCoreClient } from "../../src/db/core";
+import { getCoreClient } from "../../src/db/core.js";
 import {
   buscarTenant,
   parametrosTenant,
   parseJsonSeguro,
   resolverTenantSlug,
   tenantVigente,
-} from "../../src/db/tenant";
-import { autenticarAdmin } from "../../src/server/admin-auth";
-import { auditar } from "../../src/server/audit";
+} from "../../src/db/tenant.js";
+import { autenticarAdmin } from "../../src/server/admin-auth.js";
+import { auditar } from "../../src/server/audit.js";
 import {
   booleanoInt,
   colorHex,
@@ -19,12 +19,12 @@ import {
   metodo,
   responder,
   texto,
-} from "../../src/server/http";
+} from "../../src/server/http.js";
 import {
   estadoRateLimit,
   limpiarRateLimit,
   registrarFallo,
-} from "../../src/server/rate-limit";
+} from "../../src/server/rate-limit.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

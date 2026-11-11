@@ -18,7 +18,7 @@
     "db:tenant": "tsx scripts/register-tenant.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

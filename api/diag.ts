@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { crearClienteLibsql } from "../src/db/client.js";
 import { getCoreClient } from "../src/db/core.js";
 import { buscarTenant, getTenantClient, TENANT_DEFAULT } from "../src/db/tenant.js";
@@ -25,6 +26,17 @@ function describir(error: unknown): Record<string, unknown> {
   };
 }
 
+function huella(valor: string): string {
+  if (!valor) return "vacio";
+  return createHash("sha256").update(valor, "utf8").digest("hex").slice(0, 12);
+}
+
+function noAscii(valor: string): number {
+  let n = 0;
+  for (const ch of valor) if (ch.codePointAt(0)! > 127) n += 1;
+  return n;
+}
+
 export default async function handler(_req: any, res: any) {
   const out: Record<string, unknown> = { ok: true, node: process.version };
   const token = String(process.env.TURSO_APP_TOKEN || "");
@@ -37,7 +49,10 @@ export default async function handler(_req: any, res: any) {
     tieneEspacios: /\s/.test(token),
     tieneComillas: /^["']/.test(token),
     igualAlDeCore: token === tokenCore && token.length > 0,
+    caracteresNoAscii: noAscii(token),
+    huella: huella(token),
   };
+  out.tokenCoreHuella = huella(tokenCore);
   out.urlEnv = {
     presente: Boolean(urlEnv),
     empiezaLibsql: urlEnv.startsWith("libsql://"),

@@ -5,7 +5,7 @@ import {
   tenantVigente,
   type TenantRow,
 } from "../db/tenant.js";
-import { texto } from "./http.js";
+import { leerSesion, type Sesion } from "./session.js";
 import type { Client } from "@libsql/client";
 
 export type UsuarioAdmin = {
@@ -16,19 +16,32 @@ export type UsuarioAdmin = {
 };
 
 export type ResultadoAuth =
-  | { ok: true; usuario: UsuarioAdmin; tenant: TenantRow; db: Client }
+  | { ok: true; usuario: UsuarioAdmin; tenant: TenantRow; db: Client; sesion: Sesion }
   | { ok: false; status: number; error: string; mensaje: string };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /**
- * Revalida por request: email existente + membership + tenant vigente.
- * No hay JWT: el email actúa como identificador de sesión, igual que en Icaria.
+ * Revalida por request: token firmado y vigente + usuario existente +
+ * membership + tenant vigente. El email ya no identifica una sesión.
  */
-export async function autenticarAdmin(slug: string, emailEntrada: unknown): Promise<ResultadoAuth> {
-  const email = texto(emailEntrada, 254).toLowerCase();
-  if (!EMAIL_RE.test(email)) {
-    return { ok: false, status: 401, error: "TOKEN_INVALIDO", mensaje: "Sesión no válida." };
+export async function autenticarAdmin(
+  slug: string,
+  tokenSesion: unknown
+): Promise<ResultadoAuth> {
+  const chequeo = leerSesion(tokenSesion, slug);
+  if (chequeo.ok === false) {
+    return chequeo.motivo === "VENCIDA"
+      ? {
+          ok: false,
+          status: 401,
+          error: "SESION_INACTIVA",
+          mensaje: "La sesión se cerró por inactividad. Ingrese de nuevo.",
+        }
+      : {
+          ok: false,
+          status: 401,
+          error: "SESION_INVALIDA",
+          mensaje: "Sesión no válida.",
+        };
   }
 
   const tenant = await buscarTenant(slug);
@@ -46,11 +59,11 @@ export async function autenticarAdmin(slug: string, emailEntrada: unknown): Prom
 
   const core = getCoreClient();
   const usuarioRs = await core.execute({
-    sql: "SELECT id, email, name, is_superadmin FROM users WHERE email = ? LIMIT 1",
-    args: [email],
+    sql: "SELECT id, email, name, is_superadmin FROM users WHERE id = ? LIMIT 1",
+    args: [chequeo.sesion.uid],
   });
   if (usuarioRs.rows.length === 0) {
-    return { ok: false, status: 401, error: "TOKEN_INVALIDO", mensaje: "Sesión no válida." };
+    return { ok: false, status: 401, error: "SESION_INVALIDA", mensaje: "Sesión no válida." };
   }
   const usuario = usuarioRs.rows[0] as unknown as UsuarioAdmin;
 
@@ -62,5 +75,11 @@ export async function autenticarAdmin(slug: string, emailEntrada: unknown): Prom
     return { ok: false, status: 403, error: "SIN_PERMISO", mensaje: "La cuenta no tiene acceso a este negocio." };
   }
 
-  return { ok: true, usuario, tenant, db: getTenantClient(tenant) };
+  return {
+    ok: true,
+    usuario,
+    tenant,
+    db: getTenantClient(tenant),
+    sesion: chequeo.sesion,
+  };
 }

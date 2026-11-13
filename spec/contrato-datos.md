@@ -60,8 +60,9 @@ nombres es un error.
 - `created_at` TEXT NOT NULL DEFAULT `datetime('now')`.
 - Índice único `(user_id, tenant_id)`.
 
-Un usuario solo opera un negocio si tiene membership. El email sin membership
-responde `TOKEN_INVALIDO`.
+Un usuario solo opera un negocio si tiene membership. El login sin membership
+responde 403 `SIN_PERMISO`; una sesión sin token válido responde 401
+`SESION_INVALIDA` o `SESION_INACTIVA`.
 
 ### `rate_limits`
 

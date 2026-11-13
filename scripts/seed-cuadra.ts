@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as XLSX from "xlsx";
 import { crearClienteLibsql } from "../src/db/client";
-import { asegurarTenant, migrarTenant, slugDeArgumentos } from "./db-utils";
+import { asegurarTenant, migrarTenant } from "./db-utils";
 
 type Fila = Array<string | number | null | undefined>;
 
@@ -43,11 +43,31 @@ function imagenLocal(url: string): string {
 }
 
 async function main() {
-  const slug = slugDeArgumentos();
-  const forzar = process.argv.includes("--force");
-  const rutaXlsx = path.resolve(process.cwd(), "Cuadra.xlsx");
+  const args = process.argv.slice(2).filter((a) => a !== "--");
+  const forzar = args.includes("--force");
+  const posicionales = args.filter((a) => !a.startsWith("--"));
+  const slug = String(posicionales[0] || process.env.TENANT_OVERRIDE || "")
+    .trim()
+    .toLowerCase();
+  const archivo = String(posicionales[1] || "").trim();
+
+  if (!/^[a-z0-9][a-z0-9-]{1,48}$/.test(slug)) {
+    throw new Error(
+      "Indique el negocio: npm run db:seed -- <slug> <archivo.xlsx> [--force]"
+    );
+  }
+  if (!archivo) {
+    throw new Error(
+      "Indique el archivo .xlsx: npm run db:seed -- <slug> <archivo.xlsx> [--force]"
+    );
+  }
+  if (path.extname(archivo).toLowerCase() !== ".xlsx") {
+    throw new Error("El catálogo debe ser un archivo .xlsx");
+  }
+
+  const rutaXlsx = path.resolve(process.cwd(), archivo);
   if (!fs.existsSync(rutaXlsx)) {
-    throw new Error("No se encontró Cuadra.xlsx en la raíz del proyecto");
+    throw new Error(`No se encontró el archivo ${archivo}`);
   }
 
   const tenant = await asegurarTenant(slug);
@@ -58,7 +78,7 @@ async function main() {
   const totalProductos = Number(existentes.rows[0]?.["total"] || 0);
   if (totalProductos > 0 && !forzar) {
     console.log(`[seed] el tenant ${slug} ya tiene ${totalProductos} productos; no se toca.`);
-    console.log("[seed] use npm run db:seed -- " + slug + " --force para recargar desde cero.");
+    console.log("[seed] use npm run db:seed -- " + slug + " " + archivo + " --force para recargar desde cero.");
     return;
   }
 
@@ -66,7 +86,7 @@ async function main() {
   const hojaRubros = libro.Sheets["rubros"];
   const hojaProductos = libro.Sheets["productos"];
   if (!hojaRubros || !hojaProductos) {
-    throw new Error("Cuadra.xlsx debe tener las solapas 'rubros' y 'productos'");
+    throw new Error("El archivo .xlsx debe tener las solapas 'rubros' y 'productos'");
   }
 
   const filasRubros = XLSX.utils.sheet_to_json<Fila>(hojaRubros, { header: 1, blankrows: false });

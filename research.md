@@ -81,9 +81,39 @@ La base guarda `precio_cents` (INTEGER). La API devuelve `precio_cents` y
 `12345,00` guardó 1234500 centavos y la UI lo mostró como `$ 12.345`. No existe
 columna `precio` en la base.
 
-## R-SESION — Token por email
-No hay JWT. El login valida bcrypt y membership; el frontend guarda el email en
-`sessionStorage` bajo `cuadra_admin_sesion_<tenant>`. Cada request del panel
-envía `email` + `tenant` y el backend vuelve a validar membership. Cerrar sesión
-borra la clave de `sessionStorage`. Un email sin membership devuelve
-`TOKEN_INVALIDO` aunque exista en `users`.
+## R-SESION — Token firmado con vencimiento por inactividad
+La sesión ya no se identifica con el email. El login devuelve un token
+`base64url.firma` firmado con HMAC-SHA256 usando `SESSION_SECRET` (mínimo 32
+caracteres). El token incluye `uid`, `email`, `tenant` y `exp`; el navegador lo
+guarda en `sessionStorage` bajo `cuadra_admin_sesion_<tenant>` y lo envía como
+`sesion` en cada request. El servidor valida firma, negocio y vencimiento, y
+devuelve un token renovado en cada acción exitosa (30 minutos desde la última
+actividad). Mientras el panel detecta actividad, envía `latido` cada 10 minutos
+para mantener vigente el token del servidor. `sessionStorage` se vacía al cerrar
+la pestaña o el navegador.
+
+Evidencia local (13-nov-2026), 12/12 pruebas: login 200 con token; token
+reutilizado 200; renovación devuelve un token distinto y sirve; `latido` 200 con
+token renovado; solo email 401 `SESION_INVALIDA`; token alterado 401
+`SESION_INVALIDA`; token vencido 401 `SESION_INACTIVA`; token de otro negocio 401
+`SESION_INVALIDA`; `salir` 200; upload sin token 401 y con token válido 400
+`VALIDACION` por imagen inválida.
+Sin `SESSION_SECRET`, `src/server/session.ts` lanza un error explícito al firmar
+o validar.
+
+## R-FUSIBLES — Configuración explícita por negocio
+- `vite build` de producción aborta si `VITE_TENANT` no es un slug válido.
+  Verificado: con `VITE_TENANT` vacío, el build falla con el mensaje "VITE_TENANT
+  es obligatorio para compilar producción"; con el valor local, build verde
+  (1697 módulos).
+- `CLOUDINARY_FOLDER` ya no cae a "cuadra": si falta, la subida responde 503
+  `ALMACENAMIENTO_NO_CONFIGURADO`.
+- `TENANT_DEFAULT` toma `TENANT_OVERRIDE` cuando es un slug válido y avisa en
+  producción si falta.
+- `asegurarTenant` crea negocios nuevos sin teléfonos, textos ni marca de
+  Cuadra; el nombre por defecto es el slug.
+- `create-admin` exige un slug válido y `db:seed` exige `<slug> <archivo.xlsx>`.
+  Verificado: ambos abortan antes de tocar la base cuando falta el dato.
+- `stage-to-github.bat` excluye cualquier archivo cuyo nombre empiece con
+  `.env` (salvo la plantilla `.env.example`), además de `.gitignore` y los
+  `.bat` del owner.

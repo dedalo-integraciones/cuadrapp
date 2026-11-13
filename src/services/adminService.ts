@@ -7,6 +7,7 @@ import type {
   RubroAdmin,
   TenantPublico,
 } from '../types';
+import { borrarSesion, leerSesion, renovarToken } from '../utils/sesionAdmin';
 
 export class ErrorAdmin extends Error {
   codigo: string;
@@ -31,6 +32,7 @@ type PayloadAdmin = {
 export interface LoginRespuesta extends RespuestaAdminBase {
   email?: string;
   nombre?: string;
+  sesion?: string;
   tenant?: { id: string; nombre: string; mode: string };
 }
 
@@ -62,13 +64,24 @@ export interface PublicoRespuesta extends RespuestaAdminBase {
   tenant: TenantPublico;
 }
 
-async function llamar<T extends RespuestaAdminBase>(accion: string, payload: PayloadAdmin = {}): Promise<T> {
+/**
+ * El token de sesión se lee de sessionStorage en cada llamada. Así la
+ * renovación deslizante que devuelve el servidor se aplica sola, sin que cada
+ * pantalla tenga que actualizar su estado.
+ */
+async function llamar<T extends RespuestaAdminBase>(
+  accion: string,
+  payload: PayloadAdmin = {}
+): Promise<T> {
+  const tenant = String(payload.tenant || '');
+  const sesion = tenant ? leerSesion(tenant)?.token || '' : '';
+
   let respuesta: Response;
   try {
     respuesta = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ accion, ...payload }),
+      body: JSON.stringify({ accion, sesion, ...payload }),
     });
   } catch {
     throw new ErrorAdmin('RED', 'No se pudo conectar con el servidor. Revise la conexión.');
@@ -82,12 +95,18 @@ async function llamar<T extends RespuestaAdminBase>(accion: string, payload: Pay
   }
 
   if (!respuesta.ok || datos.ok === false) {
+    if (respuesta.status === 401 && tenant) borrarSesion(tenant);
     throw new ErrorAdmin(
       String(datos.error || 'ERROR'),
       String(datos.mensaje || 'No se pudo completar la operación.'),
       respuesta.status
     );
   }
+
+  if (tenant && typeof datos.sesion === 'string' && datos.sesion) {
+    renovarToken(tenant, datos.sesion);
+  }
+
   return datos as T;
 }
 
@@ -99,68 +118,73 @@ export function verificarLogin(email: string, password: string, tenant: string) 
   return llamar<LoginRespuesta>('verificar', { email, password, tenant });
 }
 
-export function obtenerParametros(email: string, tenant: string) {
-  return llamar<ParametrosRespuesta>('get_parametros', { email, tenant });
+/** Renueva el vencimiento mientras el owner sigue activo en el panel. */
+export function latido(tenant: string) {
+  return llamar<RespuestaAdminBase>('latido', { tenant });
 }
 
-export function guardarParametros(email: string, tenant: string, datos: Record<string, unknown>) {
-  return llamar<ParametrosRespuesta>('set_parametros', { email, tenant, datos });
+export function obtenerParametros(tenant: string) {
+  return llamar<ParametrosRespuesta>('get_parametros', { tenant });
 }
 
-export function obtenerResumen(email: string, tenant: string) {
-  return llamar<ResumenRespuesta>('resumen', { email, tenant });
+export function guardarParametros(tenant: string, datos: Record<string, unknown>) {
+  return llamar<ParametrosRespuesta>('set_parametros', { tenant, datos });
 }
 
-export function listarRubros(email: string, tenant: string) {
-  return llamar<RubrosRespuesta>('listar_rubros', { email, tenant });
+export function obtenerResumen(tenant: string) {
+  return llamar<ResumenRespuesta>('resumen', { tenant });
 }
 
-export function crearRubro(email: string, tenant: string, datos: Record<string, unknown>) {
-  return llamar<IdRespuesta>('crear_rubro', { email, tenant, datos });
+export function listarRubros(tenant: string) {
+  return llamar<RubrosRespuesta>('listar_rubros', { tenant });
 }
 
-export function actualizarRubro(email: string, tenant: string, id: number, datos: Record<string, unknown>) {
-  return llamar<IdRespuesta>('actualizar_rubro', { email, tenant, id, datos });
+export function crearRubro(tenant: string, datos: Record<string, unknown>) {
+  return llamar<IdRespuesta>('crear_rubro', { tenant, datos });
 }
 
-export function borrarRubro(email: string, tenant: string, id: number) {
-  return llamar<IdRespuesta>('borrar_rubro', { email, tenant, id });
+export function actualizarRubro(tenant: string, id: number, datos: Record<string, unknown>) {
+  return llamar<IdRespuesta>('actualizar_rubro', { tenant, id, datos });
 }
 
-export function listarCategorias(email: string, tenant: string) {
-  return llamar<CategoriasRespuesta>('listar_categorias', { email, tenant });
+export function borrarRubro(tenant: string, id: number) {
+  return llamar<IdRespuesta>('borrar_rubro', { tenant, id });
 }
 
-export function crearCategoria(email: string, tenant: string, datos: Record<string, unknown>) {
-  return llamar<IdRespuesta>('crear_categoria', { email, tenant, datos });
+export function listarCategorias(tenant: string) {
+  return llamar<CategoriasRespuesta>('listar_categorias', { tenant });
 }
 
-export function actualizarCategoria(email: string, tenant: string, id: number, datos: Record<string, unknown>) {
-  return llamar<IdRespuesta>('actualizar_categoria', { email, tenant, id, datos });
+export function crearCategoria(tenant: string, datos: Record<string, unknown>) {
+  return llamar<IdRespuesta>('crear_categoria', { tenant, datos });
 }
 
-export function borrarCategoria(email: string, tenant: string, id: number) {
-  return llamar<IdRespuesta>('borrar_categoria', { email, tenant, id });
+export function actualizarCategoria(tenant: string, id: number, datos: Record<string, unknown>) {
+  return llamar<IdRespuesta>('actualizar_categoria', { tenant, id, datos });
 }
 
-export function listarProductos(email: string, tenant: string) {
-  return llamar<ProductosRespuesta>('listar_productos', { email, tenant });
+export function borrarCategoria(tenant: string, id: number) {
+  return llamar<IdRespuesta>('borrar_categoria', { tenant, id });
 }
 
-export function crearProducto(email: string, tenant: string, datos: Record<string, unknown>) {
-  return llamar<IdRespuesta>('crear_producto', { email, tenant, datos });
+export function listarProductos(tenant: string) {
+  return llamar<ProductosRespuesta>('listar_productos', { tenant });
 }
 
-export function actualizarProducto(email: string, tenant: string, id: number, datos: Record<string, unknown>) {
-  return llamar<IdRespuesta>('actualizar_producto', { email, tenant, id, datos });
+export function crearProducto(tenant: string, datos: Record<string, unknown>) {
+  return llamar<IdRespuesta>('crear_producto', { tenant, datos });
 }
 
-export function desactivarProducto(email: string, tenant: string, id: number) {
-  return llamar<IdRespuesta>('desactivar_producto', { email, tenant, id });
+export function actualizarProducto(tenant: string, id: number, datos: Record<string, unknown>) {
+  return llamar<IdRespuesta>('actualizar_producto', { tenant, id, datos });
 }
 
-export function borrarProducto(email: string, tenant: string, id: number) {
-  return llamar<IdRespuesta>('borrar_producto', { email, tenant, id });
+export function desactivarProducto(tenant: string, id: number) {
+  return llamar<IdRespuesta>('desactivar_producto', { tenant, id });
+}
+
+export function borrarProducto(tenant: string, id: number) {
+  return llamar<IdRespuesta>('borrar_producto', { tenant, id });
 }
 
 export interface SubidaRespuesta extends RespuestaAdminBase {
@@ -170,17 +194,18 @@ export interface SubidaRespuesta extends RespuestaAdminBase {
 
 /** POST /api/admin/upload · sube una imagen comprimida como data URL. */
 export async function subirImagen(
-  email: string,
   tenant: string,
   data: string,
   nombre: string
 ): Promise<SubidaRespuesta> {
+  const sesion = leerSesion(tenant)?.token || '';
+
   let respuesta: Response;
   try {
     respuesta = await fetch('/api/admin/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ email, tenant, data, nombre }),
+      body: JSON.stringify({ sesion, tenant, data, nombre }),
     });
   } catch {
     throw new ErrorAdmin('RED', 'No se pudo conectar con el servidor. Revise la conexión.');
@@ -194,11 +219,17 @@ export async function subirImagen(
   }
 
   if (!respuesta.ok || datos.ok === false) {
+    if (respuesta.status === 401 && tenant) borrarSesion(tenant);
     throw new ErrorAdmin(
       String(datos.error || 'ERROR'),
       String(datos.mensaje || 'No se pudo subir la imagen.'),
       respuesta.status
     );
   }
+
+  if (typeof datos.sesion === 'string' && datos.sesion) {
+    renovarToken(tenant, datos.sesion);
+  }
+
   return datos as SubidaRespuesta;
 }

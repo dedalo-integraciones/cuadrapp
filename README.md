@@ -15,7 +15,7 @@ Requisitos: Node.js 20 o superior.
 npm install
 copy .env.example .env
 npm run db:migrate
-npm run db:seed
+npm run db:seed -- cuadra Cuadra.xlsx
 npm run db:admin
 npm run dev
 ```
@@ -35,13 +35,15 @@ puerto es 3000.
 | `TURSO_APP_URL` | Base por defecto para migrar/sembrar un tenant. |
 | `TURSO_APP_TOKEN` | Token de Turso para las bases de negocio. Vacío en local. |
 | `TENANT_OVERRIDE` | Slug del negocio por defecto (`cuadra`). |
+| `VITE_TENANT` | Slug del negocio que se compila. Obligatorio en `npm run build`. |
+| `SESSION_SECRET` | Firma de la sesión del panel. Mínimo 32 caracteres; obligatorio. |
 | `ADMIN_EMAIL` | Email del administrador inicial. |
 | `ADMIN_PASSWORD` | Clave del administrador inicial. |
 | `ADMIN_NAME` | Nombre visible del administrador inicial. |
 | `CLOUDINARY_CLOUD_NAME` | Opcional: subida de imágenes. |
 | `CLOUDINARY_API_KEY` | Opcional: subida de imágenes. |
 | `CLOUDINARY_API_SECRET` | Opcional: subida de imágenes. |
-| `CLOUDINARY_FOLDER` | Opcional: carpeta destino en Cloudinary. |
+| `CLOUDINARY_FOLDER` | Obligatorio si Cloudinary está configurado. |
 
 No commitear `.env`.
 
@@ -54,8 +56,8 @@ No commitear `.env`.
 | `npm run start` | Servidor local en modo producción. |
 | `npm run lint` | `tsc --noEmit`. |
 | `npm run db:migrate` | Migra core y tenant. |
-| `npm run db:seed` | Carga `Cuadra.xlsx` en la base del tenant. |
-| `npm run db:admin` | Crea o actualiza el administrador inicial. |
+| `npm run db:seed -- <slug> <archivo.xlsx> [--force]` | Carga el catálogo desde el archivo indicado. |
+| `npm run db:admin` | Crea o actualiza el administrador inicial (exige `TENANT_OVERRIDE`). |
 | `npm run db:tenant -- <slug> ["Nombre"] ["libsql://..."]` | Alta de negocio. |
 
 ## Arquitectura
@@ -68,7 +70,7 @@ No commitear `.env`.
 - Precios en centavos (`precio_cents`) en DB y API; pesos en la UI.
 - Pedidos: no se persisten. El carrito arma un mensaje y abre `wa.me`.
 - Multi-tenant: el slug se resuelve por `?tenant=`, `body.tenant`, header
-  `x-tenant`, `TENANT_OVERRIDE` o `cuadra`.
+  `x-tenant`, `TENANT_OVERRIDE` o el último recurso `cuadra`.
 
 Documentación de datos: [`spec/contrato-datos.md`](spec/contrato-datos.md).
 
@@ -89,7 +91,9 @@ Ver [`spec/panel-admin.md`](spec/panel-admin.md).
 ## Panel
 
 Ruta `/admin`. Login con email y clave. La sesión se guarda en
-`sessionStorage` y se revalida contra la membership en cada request.
+`sessionStorage` como token firmado y se revalida contra la membership en cada
+request. Vence a los 30 minutos sin actividad, o al cerrar la pestaña o el
+navegador.
 
 Pestañas: Productos, Categorías, Rubros, Configuración. Incluye buscador,
 filtros, activación lógica, borrado con doble confirmación, imágenes y textos de
@@ -101,6 +105,10 @@ la tienda.
 2. Cargar las cuatro variables `TURSO_*` en Vercel.
 3. Ejecutar las migraciones y el seed contra esas bases.
 4. Verificar `GET /api/health` y `GET /api/catalog/cuadra`.
+
+Vercel necesita además `SESSION_SECRET` (mínimo 32 caracteres) y `VITE_TENANT`
+con el slug del negocio. Sin la primera, el login falla; sin la segunda, el build
+de producción se detiene.
 
 Mientras no existan las bases de Turso, el proyecto funciona con libSQL local.
 

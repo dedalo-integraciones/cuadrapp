@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import {
   AlertCircle,
@@ -41,6 +41,7 @@ import {
   crearProducto,
   crearRubro,
   guardarParametros,
+  latido,
   listarCategorias,
   listarProductos,
   listarRubros,
@@ -50,6 +51,12 @@ import {
   verificarLogin,
 } from '../services/adminService';
 import { comprimirImagen } from '../utils/imagen';
+import {
+  borrarSesion as borrarSesionGuardada,
+  guardarSesion as guardarSesionGuardada,
+  leerSesion as leerSesionGuardada,
+  type SesionAdmin,
+} from '../utils/sesionAdmin';
 import { formatPrecio } from '../utils/csvParser';
 import { ProductImage } from '../components/ProductImage';
 import { ProductoForm } from '../components/admin/ProductoForm';
@@ -67,17 +74,13 @@ import {
 } from '../components/admin/ui';
 
 const TENANT = tenantActual();
-const CLAVE_SESION = `cuadra_admin_sesion_${TENANT}`;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DURACION_INACTIVIDAD_MS = 30 * 60 * 1000;
+const RENOVACION_ACTIVIDAD_MS = 10 * 60 * 1000;
 const iconBtn =
   'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 
 type Pestana = 'productos' | 'categorias' | 'rubros' | 'configuracion';
-
-interface SesionAdmin {
-  email: string;
-  nombre: string;
-}
 
 interface ModalState {
   tipo: 'producto' | 'categoria' | 'rubro';
@@ -102,31 +105,15 @@ interface Aviso {
 }
 
 function leerSesion(): SesionAdmin | null {
-  try {
-    const crudo = sessionStorage.getItem(CLAVE_SESION);
-    if (!crudo) return null;
-    const datos = JSON.parse(crudo) as Partial<SesionAdmin>;
-    if (!datos || typeof datos.email !== 'string' || !EMAIL_RE.test(datos.email)) return null;
-    return { email: datos.email, nombre: typeof datos.nombre === 'string' ? datos.nombre : '' };
-  } catch {
-    return null;
-  }
+  return leerSesionGuardada(TENANT);
 }
 
 function guardarSesion(sesion: SesionAdmin) {
-  try {
-    sessionStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
-  } catch {
-    // Sin almacenamiento de sesión: el panel sigue abierto hasta recargar.
-  }
+  guardarSesionGuardada(TENANT, sesion);
 }
 
 function borrarSesion() {
-  try {
-    sessionStorage.removeItem(CLAVE_SESION);
-  } catch {
-    // Nada que limpiar.
-  }
+  borrarSesionGuardada(TENANT);
 }
 
 function mensajeDe(error: unknown, respaldo = 'No se pudo completar la operación.'): string {
@@ -137,6 +124,10 @@ function mensajeDe(error: unknown, respaldo = 'No se pudo completar la operació
 
 function sesionVencida(error: unknown): boolean {
   return error instanceof ErrorAdmin && error.status === 401;
+}
+
+function sesionInactiva(error: unknown): boolean {
+  return error instanceof ErrorAdmin && error.codigo === 'SESION_INACTIVA';
 }
 
 function datosProducto(producto: ProductoAdmin, cambios: Record<string, unknown> = {}) {
@@ -178,6 +169,7 @@ function TarjetaResumen({ etiqueta, valor, icono, tono }: TarjetaProps) {
 export default function AdminPanel() {
   const [arranque, setArranque] = useState(true);
   const [sesion, setSesion] = useState<SesionAdmin | null>(null);
+  const ultimaRenovacion = useRef(0);
 
   // Login
   const [email, setEmail] = useState('');
@@ -185,6 +177,7 @@ export default function AdminPanel() {
   const [verClave, setVerClave] = useState(false);
   const [errorLogin, setErrorLogin] = useState('');
   const [entrando, setEntrando] = useState(false);
+  const [avisoInactividad, setAvisoInactividad] = useState(false);
 
   // Panel
   const [pestana, setPestana] = useState<Pestana>('productos');
@@ -234,7 +227,41 @@ export default function AdminPanel() {
     setConfirmacion(null);
     setPestana('productos');
     setPassword('');
+    setAvisoInactividad(false);
   }, []);
+
+  // Inactividad: 30 minutos sin tocar nada cierran la sesión y muestran el aviso.
+  // Al cerrar la pestaña o el navegador, sessionStorage se vacía solo.
+  useEffect(() => {
+    if (!sesion) return;
+    if (ultimaRenovacion.current === 0) ultimaRenovacion.current = Date.now();
+    let temporizador: ReturnType<typeof setTimeout>;
+    const reiniciar = () => {
+      clearTimeout(temporizador);
+      temporizador = setTimeout(() => {
+        cerrarSesion();
+        setAvisoInactividad(true);
+      }, DURACION_INACTIVIDAD_MS);
+      // Mantiene vivo el token del servidor mientras hay actividad, sin
+      // esperar a que el owner guarde algo.
+      if (Date.now() - ultimaRenovacion.current >= RENOVACION_ACTIVIDAD_MS) {
+        ultimaRenovacion.current = Date.now();
+        void latido(TENANT).catch(() => {
+          // Sin red: el temporizador local sigue controlando el cierre.
+        });
+      }
+    };
+    reiniciar();
+    window.addEventListener('pointerdown', reiniciar);
+    window.addEventListener('keydown', reiniciar);
+    window.addEventListener('wheel', reiniciar, { passive: true });
+    return () => {
+      clearTimeout(temporizador);
+      window.removeEventListener('pointerdown', reiniciar);
+      window.removeEventListener('keydown', reiniciar);
+      window.removeEventListener('wheel', reiniciar);
+    };
+  }, [sesion, cerrarSesion]);
 
   useEffect(() => {
     const guardada = leerSesion();
@@ -245,11 +272,15 @@ export default function AdminPanel() {
     let cancelado = false;
     void (async () => {
       try {
-        await obtenerParametros(guardada.email, TENANT);
-        if (!cancelado) setSesion(guardada);
+        await obtenerParametros(TENANT);
+        if (!cancelado) {
+          ultimaRenovacion.current = Date.now();
+          setSesion(guardada);
+        }
       } catch (error) {
         if (error instanceof ErrorAdmin && error.status === 401) {
           borrarSesion();
+          if (!cancelado) setAvisoInactividad(sesionInactiva(error));
         } else if (!cancelado) {
           // Error de red: se conserva la sesión y el panel muestra el aviso de carga.
           setSesion(guardada);
@@ -271,11 +302,11 @@ export default function AdminPanel() {
       try {
         const [resumenResp, rubrosResp, categoriasResp, productosResp, parametrosResp] =
           await Promise.all([
-            obtenerResumen(sesion.email, TENANT),
-            listarRubros(sesion.email, TENANT),
-            listarCategorias(sesion.email, TENANT),
-            listarProductos(sesion.email, TENANT),
-            obtenerParametros(sesion.email, TENANT),
+            obtenerResumen(TENANT),
+            listarRubros(TENANT),
+            listarCategorias(TENANT),
+            listarProductos(TENANT),
+            obtenerParametros(TENANT),
           ]);
         setResumen(resumenResp.resumen);
         setRubros(rubrosResp.rubros);
@@ -284,8 +315,15 @@ export default function AdminPanel() {
         setParametros(parametrosResp.parametros);
       } catch (error) {
         if (sesionVencida(error)) {
+          const inactiva = sesionInactiva(error);
           cerrarSesion();
-          avisar('error', 'La sesión venció. Ingrese nuevamente.');
+          setAvisoInactividad(inactiva);
+          avisar(
+            'error',
+            inactiva
+              ? 'La sesión se cerró por inactividad. Ingrese de nuevo.'
+              : 'La sesión venció. Ingrese nuevamente.'
+          );
           return;
         }
         setErrorCarga(mensajeDe(error, 'No se pudieron cargar los datos del panel.'));
@@ -325,13 +363,20 @@ export default function AdminPanel() {
     setEntrando(true);
     try {
       const respuesta = await verificarLogin(correo, password, TENANT);
+      if (!respuesta.sesion) {
+        setErrorLogin('No se pudo iniciar la sesión. Intente de nuevo.');
+        return;
+      }
       const nueva: SesionAdmin = {
         email: respuesta.email || correo,
         nombre: respuesta.nombre || '',
+        token: respuesta.sesion,
       };
       guardarSesion(nueva);
+      ultimaRenovacion.current = Date.now();
       setSesion(nueva);
       setPassword('');
+      setAvisoInactividad(false);
     } catch (error) {
       setErrorLogin(mensajeDe(error, 'No se pudo iniciar sesión.'));
     } finally {
@@ -349,8 +394,15 @@ export default function AdminPanel() {
       await cargarDatos(true);
     } catch (error) {
       if (sesionVencida(error)) {
+        const inactiva = sesionInactiva(error);
         cerrarSesion();
-        avisar('error', 'La sesión venció. Ingrese nuevamente.');
+        setAvisoInactividad(inactiva);
+        avisar(
+          'error',
+          inactiva
+            ? 'La sesión se cerró por inactividad. Ingrese de nuevo.'
+            : 'La sesión venció. Ingrese nuevamente.'
+        );
         return;
       }
       setErrorModal(mensajeDe(error));
@@ -367,8 +419,15 @@ export default function AdminPanel() {
       await cargarDatos(true);
     } catch (error) {
       if (sesionVencida(error)) {
+        const inactiva = sesionInactiva(error);
         cerrarSesion();
-        avisar('error', 'La sesión venció. Ingrese nuevamente.');
+        setAvisoInactividad(inactiva);
+        avisar(
+          'error',
+          inactiva
+            ? 'La sesión se cerró por inactividad. Ingrese de nuevo.'
+            : 'La sesión venció. Ingrese nuevamente.'
+        );
         return;
       }
       avisar('error', mensajeDe(error));
@@ -394,8 +453,8 @@ export default function AdminPanel() {
     void ejecutar(
       () =>
         actual
-          ? actualizarRubro(sesion.email, TENANT, actual.id, datos)
-          : crearRubro(sesion.email, TENANT, datos),
+          ? actualizarRubro(TENANT, actual.id, datos)
+          : crearRubro(TENANT, datos),
       actual ? 'Rubro actualizado.' : 'Rubro creado.'
     );
   };
@@ -406,8 +465,8 @@ export default function AdminPanel() {
     void ejecutar(
       () =>
         actual
-          ? actualizarCategoria(sesion.email, TENANT, actual.id, datos)
-          : crearCategoria(sesion.email, TENANT, datos),
+          ? actualizarCategoria(TENANT, actual.id, datos)
+          : crearCategoria(TENANT, datos),
       actual ? 'Categoría actualizada.' : 'Categoría creada.'
     );
   };
@@ -418,8 +477,8 @@ export default function AdminPanel() {
     void ejecutar(
       () =>
         actual
-          ? actualizarProducto(sesion.email, TENANT, actual.id, datos)
-          : crearProducto(sesion.email, TENANT, datos),
+          ? actualizarProducto(TENANT, actual.id, datos)
+          : crearProducto(TENANT, datos),
       actual ? 'Producto actualizado.' : 'Producto creado.'
     );
   };
@@ -429,7 +488,6 @@ export default function AdminPanel() {
     void accionRapida(
       () =>
         actualizarProducto(
-          sesion.email,
           TENANT,
           producto.id,
           datosProducto(producto, { activo: !producto.activo })
@@ -446,7 +504,7 @@ export default function AdminPanel() {
       etiqueta: 'Eliminar producto',
       peligro: true,
       doble: true,
-      accion: () => borrarProducto(sesion.email, TENANT, producto.id),
+      accion: () => borrarProducto(TENANT, producto.id),
       exito: 'Producto eliminado.',
     });
   };
@@ -459,7 +517,7 @@ export default function AdminPanel() {
       etiqueta: 'Eliminar categoría',
       peligro: true,
       doble: false,
-      accion: () => borrarCategoria(sesion.email, TENANT, categoria.id),
+      accion: () => borrarCategoria(TENANT, categoria.id),
       exito: 'Categoría eliminada.',
     });
   };
@@ -472,7 +530,7 @@ export default function AdminPanel() {
       etiqueta: 'Eliminar rubro',
       peligro: true,
       doble: false,
-      accion: () => borrarRubro(sesion.email, TENANT, rubro.id),
+      accion: () => borrarRubro(TENANT, rubro.id),
       exito: 'Rubro eliminado.',
     });
   };
@@ -489,13 +547,20 @@ export default function AdminPanel() {
     setGuardando(true);
     setErrorConfig(null);
     try {
-      const respuesta = await guardarParametros(sesion.email, TENANT, datos);
+      const respuesta = await guardarParametros(TENANT, datos);
       setParametros(respuesta.parametros);
       avisar('exito', 'Configuración guardada.');
     } catch (error) {
       if (sesionVencida(error)) {
+        const inactiva = sesionInactiva(error);
         cerrarSesion();
-        avisar('error', 'La sesión venció. Ingrese nuevamente.');
+        setAvisoInactividad(inactiva);
+        avisar(
+          'error',
+          inactiva
+            ? 'La sesión se cerró por inactividad. Ingrese de nuevo.'
+            : 'La sesión venció. Ingrese nuevamente.'
+        );
         return;
       }
       setErrorConfig(mensajeDe(error));
@@ -507,7 +572,7 @@ export default function AdminPanel() {
   const subirImagen = async (archivo: File): Promise<string> => {
     if (!sesion) throw new Error('La sesión está cerrada.');
     const datos = await comprimirImagen(archivo);
-    const respuesta = await subirImagenApi(sesion.email, TENANT, datos, archivo.name);
+    const respuesta = await subirImagenApi(TENANT, datos, archivo.name);
     if (!respuesta.url) throw new Error('El servidor no devolvió la URL de la imagen.');
     return respuesta.url;
   };
@@ -572,6 +637,16 @@ export default function AdminPanel() {
               {TENANT}
             </span>
           </div>
+
+          {avisoInactividad && (
+            <div
+              role="status"
+              className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800"
+            >
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>La sesión se cerró por inactividad. Ingrese de nuevo.</span>
+            </div>
+          )}
 
           <form onSubmit={ingresar} className="space-y-3" noValidate>
             {errorLogin && (

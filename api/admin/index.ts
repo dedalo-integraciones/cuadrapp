@@ -8,6 +8,7 @@ import {
   tenantVigente,
 } from "../../src/db/tenant.js";
 import { autenticarAdmin } from "../../src/server/admin-auth.js";
+import { crearSesion, renovarSesion } from "../../src/server/session.js";
 import { auditar } from "../../src/server/audit.js";
 import {
   booleanoInt,
@@ -203,6 +204,7 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
     email: String(usuario["email"]),
     nombre: String(usuario["name"]),
     tenant: { id: tenant.id, nombre: tenant.name, mode: tenant.mode },
+    sesion: crearSesion(Number(usuario["id"]), String(usuario["email"]), tenant.id),
   });
 }
 
@@ -290,23 +292,34 @@ export default async function handler(req: any, res: any) {
       if (!tenant) return fallo(res, 404, "TENANT_NO_ENCONTRADO", "El negocio no existe.");
       return responder(res, 200, { ok: true, tenant: parametrosTenant(tenant) });
     }
+    if (accion === "salir") {
+      // El token vive en sessionStorage; el cliente lo borra. No hay estado en el servidor.
+      return responder(res, 200, { ok: true });
+    }
 
-    const auth = await autenticarAdmin(slug, body.email);
+    const auth = await autenticarAdmin(slug, body.sesion ?? body.email);
     if (auth.ok === false) {
       return fallo(res, auth.status, auth.error, auth.mensaje);
     }
     const { usuario, tenant, db } = auth;
+    const ok = (cuerpo: Record<string, unknown>) =>
+      responder(res, 200, { ...cuerpo, sesion: renovarSesion(auth.sesion) });
 
     switch (accion) {
+      case "latido": {
+        // Actividad sin cambios de datos: solo renueva el vencimiento.
+        return ok({ ok: true });
+      }
+
       case "get_parametros": {
-        return responder(res, 200, { ok: true, parametros: parametrosTenant(tenant) });
+        return ok({ ok: true, parametros: parametrosTenant(tenant) });
       }
 
       case "set_parametros": {
         const datos = (body.datos || {}) as Record<string, unknown>;
         const parametros = await guardarParametros(auth, datos);
         await auditar(tenant.id, usuario.id, "PARAMETROS_ACTUALIZADOS");
-        return responder(res, 200, { ok: true, parametros });
+        return ok({ ok: true, parametros });
       }
 
       case "resumen": {
@@ -315,7 +328,7 @@ export default async function handler(req: any, res: any) {
           db.execute("SELECT COUNT(*) AS total FROM categorias"),
           db.execute("SELECT COUNT(*) AS total, SUM(CASE WHEN activo = 1 THEN 1 ELSE 0 END) AS activos FROM productos"),
         ]);
-        return responder(res, 200, {
+        return ok({
           ok: true,
           resumen: {
             rubros: Number(r.rows[0]?.["total"] || 0),
@@ -332,7 +345,7 @@ export default async function handler(req: any, res: any) {
         const rs = await db.execute(
           "SELECT id, rubro, descripcion, orden, color, activo FROM rubros ORDER BY orden, id"
         );
-        return responder(res, 200, { ok: true, rubros: rs.rows.map((f) => filaRubro(f)) });
+        return ok({ ok: true, rubros: rs.rows.map((f) => filaRubro(f)) });
       }
 
       case "crear_rubro": {
@@ -353,7 +366,7 @@ export default async function handler(req: any, res: any) {
           ],
         });
         await auditar(tenant.id, usuario.id, "RUBRO_CREADO", { id: Number(rs.lastInsertRowid) });
-        return responder(res, 200, { ok: true, id: Number(rs.lastInsertRowid) });
+        return ok({ ok: true, id: Number(rs.lastInsertRowid) });
       }
 
       case "actualizar_rubro": {
@@ -374,7 +387,7 @@ export default async function handler(req: any, res: any) {
           ],
         });
         await auditar(tenant.id, usuario.id, "RUBRO_ACTUALIZADO", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       case "borrar_rubro": {
@@ -388,7 +401,7 @@ export default async function handler(req: any, res: any) {
         }
         await db.execute({ sql: "DELETE FROM rubros WHERE id = ?", args: [id] });
         await auditar(tenant.id, usuario.id, "RUBRO_BORRADO", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       // ── Categorías ─────────────────────────────────────────────────────────
@@ -398,7 +411,7 @@ export default async function handler(req: any, res: any) {
            JOIN rubros r ON r.id = c.id_rubro
            ORDER BY r.orden, c.orden, c.id`
         );
-        return responder(res, 200, { ok: true, categorias: rs.rows.map((f) => filaCategoria(f)) });
+        return ok({ ok: true, categorias: rs.rows.map((f) => filaCategoria(f)) });
       }
 
       case "crear_categoria": {
@@ -419,7 +432,7 @@ export default async function handler(req: any, res: any) {
           ],
         });
         await auditar(tenant.id, usuario.id, "CATEGORIA_CREADA", { id: Number(rs.lastInsertRowid) });
-        return responder(res, 200, { ok: true, id: Number(rs.lastInsertRowid) });
+        return ok({ ok: true, id: Number(rs.lastInsertRowid) });
       }
 
       case "actualizar_categoria": {
@@ -442,7 +455,7 @@ export default async function handler(req: any, res: any) {
           ],
         });
         await auditar(tenant.id, usuario.id, "CATEGORIA_ACTUALIZADA", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       case "borrar_categoria": {
@@ -456,7 +469,7 @@ export default async function handler(req: any, res: any) {
         }
         await db.execute({ sql: "DELETE FROM categorias WHERE id = ?", args: [id] });
         await auditar(tenant.id, usuario.id, "CATEGORIA_BORRADA", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       // ── Productos ──────────────────────────────────────────────────────────
@@ -467,7 +480,7 @@ export default async function handler(req: any, res: any) {
            JOIN rubros r ON r.id = c.id_rubro
            ORDER BY r.orden, c.orden, p.orden, p.id`
         );
-        return responder(res, 200, { ok: true, productos: rs.rows.map((f) => filaProducto(f)) });
+        return ok({ ok: true, productos: rs.rows.map((f) => filaProducto(f)) });
       }
 
       case "crear_producto": {
@@ -507,7 +520,7 @@ export default async function handler(req: any, res: any) {
           ],
         });
         await auditar(tenant.id, usuario.id, "PRODUCTO_CREADO", { id: Number(rs.lastInsertRowid) });
-        return responder(res, 200, { ok: true, id: Number(rs.lastInsertRowid) });
+        return ok({ ok: true, id: Number(rs.lastInsertRowid) });
       }
 
       case "actualizar_producto": {
@@ -543,7 +556,7 @@ export default async function handler(req: any, res: any) {
           ],
         });
         await auditar(tenant.id, usuario.id, "PRODUCTO_ACTUALIZADO", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       case "desactivar_producto": {
@@ -553,14 +566,14 @@ export default async function handler(req: any, res: any) {
           args: [id],
         });
         await auditar(tenant.id, usuario.id, "PRODUCTO_DESACTIVADO", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       case "borrar_producto": {
         const id = idValido(body.id);
         await db.execute({ sql: "DELETE FROM productos WHERE id = ?", args: [id] });
         await auditar(tenant.id, usuario.id, "PRODUCTO_BORRADO", { id });
-        return responder(res, 200, { ok: true });
+        return ok({ ok: true });
       }
 
       default:

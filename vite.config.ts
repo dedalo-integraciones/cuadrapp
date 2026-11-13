@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
-import {defineConfig, Plugin} from 'vite';
+import {defineConfig, loadEnv, Plugin} from 'vite';
 
 // LINT.IfChange(aistudio_media_plugin)
 function aistudioMediaPlugin(): Plugin {
@@ -95,8 +95,24 @@ function inlineCssPlugin(): Plugin {
   };
 }
 
+const TENANT_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
+
 export default defineConfig(({ mode }) => {
   const isProd = mode === 'production';
+
+  // Fusible: una compilación de producción sin negocio explícito podría
+  // publicar el catálogo de otro cliente. Se detiene antes de compilar.
+  if (isProd) {
+    const env = loadEnv(mode, __dirname, '');
+    const slug = String(env.VITE_TENANT || '').trim().toLowerCase();
+    if (!TENANT_SLUG_RE.test(slug)) {
+      throw new Error(
+        'VITE_TENANT es obligatorio para compilar producción. ' +
+          'Defina el slug del negocio (por ejemplo VITE_TENANT=cuadra) en el entorno de compilación.'
+      );
+    }
+  }
+
   return {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin(), inlineCssPlugin()],
     resolve: {

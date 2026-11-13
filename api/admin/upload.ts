@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { autenticarAdmin } from "../../src/server/admin-auth.js";
+import { renovarSesion } from "../../src/server/session.js";
 import { auditar } from "../../src/server/audit.js";
 import { imagenSegura, leerBody, metodo, responder, texto } from "../../src/server/http.js";
 import { resolverTenantSlug } from "../../src/db/tenant.js";
@@ -46,8 +47,9 @@ export default async function handler(req: any, res: any) {
   const cloud = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
   const apiKey = String(process.env.CLOUDINARY_API_KEY || "").trim();
   const apiSecret = String(process.env.CLOUDINARY_API_SECRET || "").trim();
+  const folder = texto(process.env.CLOUDINARY_FOLDER, 60);
 
-  if (!cloud || !apiKey || !apiSecret) {
+  if (!cloud || !apiKey || !apiSecret || !folder) {
     return fallo(
       res,
       503,
@@ -58,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
   const body = await leerBody(req);
   const slug = resolverTenantSlug({ ...req, body });
-  const auth = await autenticarAdmin(slug, body.email);
+  const auth = await autenticarAdmin(slug, body.sesion ?? body.email);
   if (auth.ok === false) {
     return fallo(res, auth.status, auth.error, auth.mensaje);
   }
@@ -74,7 +76,6 @@ export default async function handler(req: any, res: any) {
 
   try {
     const timestamp = Math.floor(Date.now() / 1000);
-    const folder = texto(process.env.CLOUDINARY_FOLDER, 60) || "cuadra";
     const firma = createHash("sha1")
       .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
       .digest("hex");
@@ -110,6 +111,7 @@ export default async function handler(req: any, res: any) {
       ok: true,
       url,
       public_id: resultado.public_id || null,
+      sesion: renovarSesion(auth.sesion),
     });
   } catch (error) {
     console.error("[api/admin/upload] error", error);

@@ -42,7 +42,11 @@ export function slugDeArgumentos(): string {
 }
 
 export function urlTenantPorDefecto(): string {
-  return process.env.TURSO_APP_URL || "file:./data/cuadra-app.db";
+  const url = String(process.env.TURSO_APP_URL || "").trim();
+  if (!url) {
+    throw new Error("Falta TURSO_APP_URL: no se puede registrar el negocio sin base de datos.");
+  }
+  return url;
 }
 
 export async function obtenerTenant(slug: string): Promise<TenantRow | null> {
@@ -64,11 +68,7 @@ export async function asegurarTenant(slug: string, nombre?: string, url?: string
   }
 
   const urlFinal = url || urlTenantPorDefecto();
-  const brand = JSON.stringify({
-    logo: "/images/logo.webp",
-    hero: "/images/hero.webp",
-    colores: { primario: "#C91810", fondo: "#040706", acento: "#0055A4" },
-  });
+  const brand = JSON.stringify({ logo: "", hero: "", colores: {} });
   await getCoreClient().execute({
     sql: `INSERT INTO tenants
       (id, name, mode, flags, brand, turso_db, status, whatsapp, whatsapp_pedidos,
@@ -77,15 +77,15 @@ export async function asegurarTenant(slug: string, nombre?: string, url?: string
       VALUES (?, ?, 'pedidos', '{}', ?, ?, 'activo', ?, ?, '$', 150, 3, 1, 0, 0, ?, ?, ?, ?)`,
     args: [
       slug,
-      nombre || `Cuadra ${slug}`,
+      nombre || slug,
       brand,
       urlFinal,
-      "5492617202706",
-      "5492617202706",
-      "Pedidos y consultas por WhatsApp",
-      "Nuestro Menú",
-      "Pedidos por WhatsApp para negocios de cercanía",
-      "Cuadra: plataforma de pedidos por WhatsApp para negocios de cercanía",
+      null,
+      null,
+      "Pedidos por WhatsApp",
+      "Catálogo",
+      "",
+      "",
     ],
   });
   const creado = await buscarTenant(slug);

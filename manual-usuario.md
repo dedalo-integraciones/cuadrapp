@@ -28,6 +28,10 @@ probar.
 Para salir, tocar **Salir** en la esquina superior derecha. La sesión se cierra
 y se debe ingresar de nuevo.
 
+La sesión también se cierra sola después de 30 minutos sin actividad y al cerrar
+la pestaña o el navegador. En ese caso el panel muestra un aviso para volver a
+ingresar.
+
 Para ver la tienda, tocar **Ver tienda**. Se abre en otra pestaña.
 
 ## 3. Productos
@@ -203,8 +207,8 @@ Verificar el email y la clave. Si el problema continúa, pedir al responsable de
 la plataforma que revise la cuenta y el acceso al negocio.
 
 **El panel dice que la sesión venció.**
-Volver a ingresar. La sesión se cierra cuando el servidor rechaza las
-credenciales.
+Volver a ingresar. La sesión se cierra después de 30 minutos sin actividad, al
+cerrar la pestaña o el navegador, o cuando el servidor rechaza las credenciales.
 
 **Un producto no aparece en la tienda.**
 Revisar que el producto esté activo, que su categoría esté activa y que su rubro

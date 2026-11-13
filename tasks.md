@@ -45,19 +45,37 @@
 - [x] **OT#8 — SDD adaptado de Icaria**.
       `AGENTS.md`, `plan.md`, `research.md`, `tasks.md`, `spec/` y
       `manual-usuario.md` con el estado real de Cuadra.
+- [x] **OT#9 — Turso de producción**.
+      Base core y base del tenant en Turso; variables de Turso cargadas en
+      Vercel; migración y seed ejecutados.
+      Evidencia verificada el 13-nov-2026: `/api/health` 200 con core y tenant
+      en `ok`; `/api/catalog/cuadra` 200 con 2 rubros, 7 categorías y 19
+      productos; `/api/tenant/cuadra` 200; `/admin` 200.
+- [x] **OT#10 — Cloudinary de producción**.
+      Las cuatro variables de Cloudinary cargadas en Vercel.
+      Cierre por confirmación del owner el 13-nov-2026. No se repitió una subida
+      real desde el formulario en esta sesión.
+- [x] **OT#15 — Sesión con cierre por inactividad**.
+      Token firmado HMAC-SHA256 en `sessionStorage` con `uid`, `email`, `tenant`
+      y `exp`; vencimiento de 30 minutos en el servidor; renovación deslizante en
+      cada acción exitosa; cierre al cerrar la pestaña o el navegador; aviso
+      claro de inactividad en el login.
+      Evidencia local (13-nov-2026): 12/12 pruebas aprobadas — login, token
+      reutilizado, renovación, `latido`, solo email 401, token alterado 401,
+      token vencido 401 `SESION_INACTIVA`, otro negocio 401, salir 200, upload
+      sin token 401 y upload con token válido; `tsc` 0; build verde.
+- [x] **OT#16 — Fusibles de configuración**.
+      `VITE_TENANT` obligatorio en build de producción; `CLOUDINARY_FOLDER`
+      obligatorio para subir; `TENANT_DEFAULT` desde `TENANT_OVERRIDE` con aviso
+      en producción; `asegurarTenant` con datos neutros; `create-admin` con slug
+      obligatorio; seed con `<archivo.xlsx>` obligatorio; staging excluye
+      `.env*` salvo `.env.example`.
+      Evidencia: build sin `VITE_TENANT` aborta con mensaje explícito; seed sin
+      archivo y admin sin slug abortan antes de tocar la base; `tsc` 0; build
+      verde.
 
 ## Pendientes
 
-- [ ] **OT#9 — Turso de producción**.
-      Crear base core y base del tenant; cargar las cuatro variables de Turso
-      en Vercel; migrar, sembrar y verificar.
-      Criterio: `/api/health` en producción con core y tenant en `ok`;
-      `/api/catalog/cuadra` con los 19 productos reales.
-- [ ] **OT#10 — Cloudinary de producción**.
-      Cargar las cuatro variables de Cloudinary y verificar una subida real
-      desde el formulario de producto.
-      Criterio: la imagen sube, queda accesible por URL y se guarda en el
-      producto.
 - [ ] **OT#11 — Procedimiento de alta de negocios**.
       Documentar y probar el alta completa de un tenant nuevo (base, migración,
       admin, catálogo). Criterio: un negocio nuevo opera tienda y panel sin
@@ -69,9 +87,12 @@
 - [ ] **OT#13 — Exportaciones `.xlsx` (si se aprueba)**.
       Solo SheetJS con import dinámico, respetando filtros visibles; actualizar
       manual y specs. Criterio: archivo descargado con los datos en pantalla.
-- [ ] **OT#14 — Superadmin web (fase futura)**.
-      Alta de tenants, usuarios, vencimientos y topes sin scripts.
-      Criterio: operación completa desde UI con auditoría.
+
+## Descartado
+
+- **OT#14 — Superadmin web**. No se implementa: la escala es un repositorio y un
+  deployment por cliente. El código multi-tenant se conserva sin panel de
+  superadmin.
 
 ## Deuda conocida
 
@@ -79,7 +100,11 @@
   oficial es `manual-usuario.md`.
 - `README.md` fue reescrito para la etapa Turso; verificar que no queden
   referencias al Sheet en otros documentos.
-- No hay repo git inicializado en `dev`; el control de versiones y el deploy
-  quedan a cargo del owner.
+- El repositorio git vive en `dev`. El staging a `/Github` se hace con
+  `scripts/stage-to-github.bat`, que excluye `.env*` (salvo `.env.example`) y
+  `.gitignore`; el push queda a cargo del owner.
+- Antes del próximo deploy, Vercel necesita `SESSION_SECRET` (mínimo 32
+  caracteres) y `VITE_TENANT=cuadra`. Sin la primera, el login responde error;
+  sin la segunda, el build de producción se detiene.
 - `server.ts` usa `process.env.PORT` con respaldo 3000; Vercel no usa ese
   servidor.

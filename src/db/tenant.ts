@@ -2,8 +2,21 @@ import type { Client } from "@libsql/client";
 import { crearClienteLibsql } from "./client.js";
 import { getCoreClient } from "./core.js";
 
-export const TENANT_DEFAULT = "cuadra";
 const TENANT_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
+
+const SLUG_ENTORNO = String(process.env.TENANT_OVERRIDE || "").trim().toLowerCase();
+
+/**
+ * Negocio por defecto del proceso. Cada instalación declara el suyo con
+ * TENANT_OVERRIDE; "cuadra" queda solo como último recurso.
+ */
+export const TENANT_DEFAULT = TENANT_RE.test(SLUG_ENTORNO) ? SLUG_ENTORNO : "cuadra";
+
+if (!TENANT_RE.test(SLUG_ENTORNO) && process.env.NODE_ENV === "production") {
+  console.warn(
+    "[tenant] TENANT_OVERRIDE no está definido; se usa 'cuadra' como negocio por defecto."
+  );
+}
 
 export type TenantRow = {
   id: string;

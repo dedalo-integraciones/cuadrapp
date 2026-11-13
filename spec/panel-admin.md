@@ -8,12 +8,21 @@
 - Login con email + clave contra `POST /api/admin` con
   `accion: "verificar"`. El backend valida formato de email (máximo 254),
   clave entre 8 y 72 caracteres, bcrypt y membership.
-- Sin JWT. La sesión se guarda en `sessionStorage` bajo
-  `cuadra_admin_sesion_<tenant>` con `{ email, nombre }`. Cada request del panel
-  envía `email` y `tenant`, y el backend revalida membership.
+- Sin JWT. El login devuelve un token firmado (HMAC-SHA256) con `uid`, `email`,
+  `tenant` y `exp`. Se guarda en `sessionStorage` bajo
+  `cuadra_admin_sesion_<tenant>` con `{ email, nombre, token }`. Cada request del
+  panel envía `sesion` y `tenant`; el backend valida firma, negocio, membership y
+  vencimiento.
+- La sesión vence a los 30 minutos sin actividad. Cada acción exitosa devuelve un
+  token renovado, que el servicio guarda sin recargar la pantalla. Mientras hay
+  actividad, el panel envía `latido` cada 10 minutos para renovar el token.
 - Al montar, el panel relee la sesión y llama `get_parametros` para validarla.
-  Si la respuesta es 401, borra la sesión. Si es un error de red, conserva la
-  sesión y muestra el aviso de carga.
+  Si la respuesta es 401, borra la sesión; si el código es `SESION_INACTIVA`,
+  muestra el aviso de inactividad. Si es un error de red, conserva la sesión y
+  muestra el aviso de carga.
+- Un temporizador de 30 minutos sin interacción (puntero o teclado) cierra la
+  sesión y muestra el mismo aviso. Cerrar la pestaña o el navegador vacía
+  `sessionStorage`, por lo que la sesión no sobrevive.
 - Logout borra la clave de `sessionStorage` y limpia el estado del panel.
 - Rate-limit de login: 5 intentos por IP cada 15 minutos. El mensaje indica los
   minutos restantes.
@@ -23,8 +32,8 @@
 ## Estructura de la pantalla
 
 - **Login**: logo, identificación del negocio, email, clave con botón de
-  mostrar/ocultar, error en línea, botón "Ingresar al panel" y enlace "Volver a
-  la tienda".
+  mostrar/ocultar, aviso de inactividad cuando corresponde, error en línea, botón
+  "Ingresar al panel" y enlace "Volver a la tienda".
 - **Encabezado del panel**: logo, nombre comercial, sesión, enlace "Ver tienda"
   (abre `/?tenant=<slug>` en otra solapa) y botón "Salir".
 - **Navegación**: 4 pestañas — Productos, Categorías, Rubros, Configuración.
@@ -108,8 +117,9 @@ Formulario único con secciones:
   (`comprimirImagen`, tope de 8 MB).
 - Se envía como data URL a `POST /api/admin/upload`.
 - El servidor firma la subida a Cloudinary con `CLOUDINARY_*`. Si faltan
-  credenciales, responde 503 `ALMACENAMIENTO_NO_CONFIGURADO` y el formulario
-  muestra el aviso; la URL manual sigue disponible.
+  credenciales o `CLOUDINARY_FOLDER`, responde 503
+  `ALMACENAMIENTO_NO_CONFIGURADO` y el formulario muestra el aviso; la URL
+  manual sigue disponible.
 - La imagen se valida como URL http(s) o ruta interna; no se aceptan esquemas
   peligrosos.
 
@@ -123,7 +133,9 @@ Formulario único con secciones:
 - Avisos de éxito y error con `AdminToast`, autocierre a los 4,2 segundos.
 - Mensajes de error del servidor se muestran tal cual llegan
   (`ErrorAdmin.message`).
-- Si una request devuelve 401, el panel cierra la sesión y avisa que venció.
+- Si una request devuelve 401, el panel cierra la sesión y avisa:
+  `SESION_INACTIVA` indica cierre por inactividad; cualquier otro 401, sesión
+  vencida o no válida.
 - Estados vacíos con mensaje ("No hay productos para mostrar", "Todavía no hay
   rubros"), nunca una lista muda.
 - Español neutro; forma usted en la UI.
@@ -133,11 +145,13 @@ Formulario único con secciones:
 
 Todas las acciones usan `POST /api/admin` con `Content-Type: application/json`.
 El cuerpo siempre lleva `accion` y `tenant`; las acciones autenticadas llevan
-`email`.
+`sesion` (token firmado). Las respuestas exitosas de acciones autenticadas
+incluyen `sesion` con el token renovado.
 
 Acciones usadas por el panel:
 
 - `verificar` — login.
+- `latido` — renueva la sesión mientras hay actividad.
 - `get_parametros`, `set_parametros`.
 - `resumen`.
 - `listar_rubros`, `crear_rubro`, `actualizar_rubro`, `borrar_rubro`.
@@ -148,8 +162,9 @@ Acciones usadas por el panel:
 - `POST /api/admin/upload` — subida de imagen.
 
 Códigos de error relevantes: `VALIDACION` (400), `TOKEN_INVALIDO` (401),
-`SIN_PERMISO` (403), `TENANT_NO_ENCONTRADO` (404), `REFERENCIA` (409),
-`LIMITE` (409), `RATE_LIMIT` (429), `ALMACENAMIENTO_NO_CONFIGURADO` (503).
+`SESION_INVALIDA` (401), `SESION_INACTIVA` (401), `SIN_PERMISO` (403),
+`TENANT_NO_ENCONTRADO` (404), `REFERENCIA` (409), `LIMITE` (409),
+`RATE_LIMIT` (429), `ALMACENAMIENTO_NO_CONFIGURADO` (503).
 
 ## Lo que NO existe en v1
 

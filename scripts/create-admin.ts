@@ -9,22 +9,29 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Crea o actualiza la cuenta administradora de un negocio.
  * Uso: npm run db:admin
  * Toma ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME y TENANT_OVERRIDE del .env.
+ * El slug del negocio es obligatorio: no hay negocio por defecto.
  */
 async function main() {
-  const email = String(process.env.ADMIN_EMAIL || process.argv[2] || "admin@cuadra.app")
+  const email = String(process.env.ADMIN_EMAIL || process.argv[2] || "")
     .trim()
     .toLowerCase();
   const password = String(process.env.ADMIN_PASSWORD || process.argv[3] || "");
-  const nombre = String(process.env.ADMIN_NAME || process.argv[4] || "Administrador Cuadra").trim();
-  const slug = String(process.env.TENANT_OVERRIDE || process.argv[5] || "cuadra")
+  const nombre = String(process.env.ADMIN_NAME || process.argv[4] || "Administrador").trim();
+  const slug = String(process.env.TENANT_OVERRIDE || process.argv[5] || "")
     .trim()
     .toLowerCase();
 
+  if (!email) {
+    throw new Error("Falta ADMIN_EMAIL: indique el correo del administrador");
+  }
   if (!EMAIL_RE.test(email) || email.length > 254) {
     throw new Error("ADMIN_EMAIL no tiene un formato válido");
   }
   if (password.length < 8 || password.length > 72) {
     throw new Error("ADMIN_PASSWORD debe tener entre 8 y 72 caracteres");
+  }
+  if (!/^[a-z0-9][a-z0-9-]{1,48}$/.test(slug)) {
+    throw new Error("Falta el negocio: defina TENANT_OVERRIDE con el slug del negocio");
   }
 
   const tenant = await asegurarTenant(slug);

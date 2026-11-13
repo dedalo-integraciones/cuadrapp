@@ -64,6 +64,13 @@
       reutilizado, renovación, `latido`, solo email 401, token alterado 401,
       token vencido 401 `SESION_INACTIVA`, otro negocio 401, salir 200, upload
       sin token 401 y upload con token válido; `tsc` 0; build verde.
+      Evidencia de producción (13-nov-2026, tras push): `GET /api/health` 200
+      con core y tenant en `ok`; `GET /api/catalog/cuadra` 200 con 2 rubros, 7
+      categorías y 19 productos; `GET /admin` 200; `POST /api/admin` sin token
+      401 `SESION_INVALIDA`; con email válido y clave incorrecta 401
+      `TOKEN_INVALIDO`; el bundle `/assets/index-D47w-Mnj.js` contiene
+      `SESION_INACTIVA`, `latido` y el aviso de inactividad, y no contiene
+      `SESSION_SECRET`.
 - [x] **OT#16 — Fusibles de configuración**.
       `VITE_TENANT` obligatorio en build de producción; `CLOUDINARY_FOLDER`
       obligatorio para subir; `TENANT_DEFAULT` desde `TENANT_OVERRIDE` con aviso

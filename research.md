@@ -92,7 +92,7 @@ actividad). Mientras el panel detecta actividad, envía `latido` cada 10 minutos
 para mantener vigente el token del servidor. `sessionStorage` se vacía al cerrar
 la pestaña o el navegador.
 
-Evidencia local (13-nov-2026), 12/12 pruebas: login 200 con token; token
+Evidencia local (13-nov-2026), 13/13 pruebas: login 200 con token; token
 reutilizado 200; renovación devuelve un token distinto y sirve; `latido` 200 con
 token renovado; solo email 401 `SESION_INVALIDA`; token alterado 401
 `SESION_INVALIDA`; token vencido 401 `SESION_INACTIVA`; token de otro negocio 401
@@ -100,6 +100,27 @@ token renovado; solo email 401 `SESION_INVALIDA`; token alterado 401
 `VALIDACION` por imagen inválida.
 Sin `SESSION_SECRET`, `src/server/session.ts` lanza un error explícito al firmar
 o validar.
+
+## R-PROD — Evidencia de producción del 13-nov-2026
+Sitio verificado: `https://cuadrapp-orcin.vercel.app` (canonical declarado en
+`index.html`). Comprobaciones hechas con peticiones HTTP reales:
+
+- `GET /api/health` → 200; `checks.core = ok`, `checks.tenant = ok`;
+  timestamp `2026-11-13T23:27:26.847Z`.
+- `GET /api/catalog/cuadra` → 200; 2 rubros, 7 categorías y 19 productos
+  (conteo de los arreglos del JSON).
+- `GET /admin` → 200; HTML de la SPA de 58.255 bytes.
+- `POST /api/admin` con `accion: get_parametros` y sin `sesion` → 401
+  `SESION_INVALIDA`. Confirma que el email ya no identifica la sesión.
+- `POST /api/admin` con `accion: verificar`, email existente y clave incorrecta
+  → 401 `TOKEN_INVALIDO`.
+- Bundle `/assets/index-D47w-Mnj.js` (94.769 bytes): contiene `SESION_INACTIVA`,
+  `latido` y el aviso de inactividad; no contiene `SESSION_SECRET`. El secreto no
+  viaja al navegador.
+
+No verificado por el asistente: login con credenciales válidas en producción (no
+se dispone de la clave y no debe exponerse) y cierre por pestaña o navegador en
+un navegador real. El owner confirmó el login correcto en `/admin`.
 
 ## R-FUSIBLES — Configuración explícita por negocio
 - `vite build` de producción aborta si `VITE_TENANT` no es un slug válido.

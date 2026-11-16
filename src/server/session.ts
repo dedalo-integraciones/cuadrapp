@@ -1,6 +1,15 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-/** La sesión vive 30 minutos desde la última actividad. */
+/**
+ * Sesión firmada y sin estado en el servidor.
+ *
+ * Decisión B-03: no se mantiene una lista de revocación. El token solo deja de
+ * valer al vencer (30 minutos desde la última actividad) o si el usuario,
+ * su membership o el negocio dejan de ser válidos, porque `autenticarAdmin`
+ * los revalida en cada request. Cambiar la clave no corta sesiones ya abiertas:
+ * el riesgo residual aceptado es que un token robado sirva como máximo hasta
+ * su vencimiento.
+ */
 export const DURACION_SESION_MS = 30 * 60 * 1000;
 
 export type Sesion = {

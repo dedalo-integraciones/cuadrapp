@@ -13,6 +13,7 @@ import { auditar } from "../../src/server/audit.js";
 import {
   booleanoInt,
   colorHex,
+  encabezado,
   entero,
   imagenSegura,
   ipCliente,
@@ -20,6 +21,7 @@ import {
   metodo,
   responder,
   texto,
+  urlSegura,
 } from "../../src/server/http.js";
 import {
   estadoRateLimit,
@@ -28,6 +30,12 @@ import {
 } from "../../src/server/rate-limit.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Hash ficticio para que un email inexistente tarde lo mismo que uno real.
+ * No corresponde a ninguna cuenta ni a una clave conocida.
+ */
+const HASH_FICTICIO = "$2b$12$S.kHH4FYbzIZRN/kBDbep.8T5yqlVlW4.bnnPlmGuDyvZ4ufwN9xy";
 
 class ErrorApi extends Error {
   status: number;
@@ -131,6 +139,17 @@ function validarImagen(valor: unknown): string | null {
   return imagen;
 }
 
+/** Enlace de red social: vacío se permite; si hay valor, debe ser http(s). */
+function validarRed(valor: unknown, etiqueta: string): string {
+  const limpio = texto(valor, 300);
+  if (!limpio) return "";
+  const url = urlSegura(limpio, 300);
+  if (!url) {
+    throw new ErrorApi(400, "VALIDACION", `El enlace de ${etiqueta} debe ser una URL http(s).`);
+  }
+  return url;
+}
+
 type AuthOk = Extract<Awaited<ReturnType<typeof autenticarAdmin>>, { ok: true }>;
 
 async function verificarLogin(req: any, res: any, body: Record<string, any>, slug: string) {
@@ -148,13 +167,17 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
     return fallo(res, 400, "VALIDACION", "La clave debe tener entre 8 y 72 caracteres.");
   }
 
-  const estado = await estadoRateLimit(ip);
-  if (!estado.permitido) {
+  const [estadoIp, estadoEmail] = await Promise.all([
+    estadoRateLimit("ip", ip),
+    estadoRateLimit("email", email),
+  ]);
+  if (!estadoIp.permitido || !estadoEmail.permitido) {
+    const minutos = Math.max(estadoIp.minutosRestantes, estadoEmail.minutosRestantes);
     return fallo(
       res,
       429,
       "RATE_LIMIT",
-      `Demasiados intentos. Espere ${estado.minutosRestantes} minuto(s) e intente de nuevo.`
+      `Demasiados intentos. Espere ${minutos} minuto(s) e intente de nuevo.`
     );
   }
 
@@ -175,12 +198,15 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
     args: [email],
   });
   const usuario = usuarioRs.rows[0] as unknown as Record<string, unknown> | undefined;
-  const claveValida = usuario
-    ? await bcrypt.compare(password, String(usuario["password_hash"] || ""))
-    : false;
+  const hashGuardado =
+    usuario && usuario["password_hash"] ? String(usuario["password_hash"]) : HASH_FICTICIO;
+  const claveValida = await bcrypt.compare(password, hashGuardado);
 
   if (!usuario || !claveValida) {
-    await registrarFallo(ip);
+    await Promise.all([
+      registrarFallo("ip", ip),
+      registrarFallo("email", email),
+    ]);
     await auditar(tenant.id, usuario ? Number(usuario["id"]) : null, "LOGIN_FALLIDO", {
       email,
       ip,
@@ -197,7 +223,10 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
     return fallo(res, 403, "SIN_PERMISO", "La cuenta no tiene acceso a este negocio.");
   }
 
-  await limpiarRateLimit(ip);
+  await Promise.all([
+    limpiarRateLimit("ip", ip),
+    limpiarRateLimit("email", email),
+  ]);
   await auditar(tenant.id, Number(usuario["id"]), "LOGIN_OK", { email, ip });
   return responder(res, 200, {
     ok: true,
@@ -224,9 +253,9 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
   >;
   const brand = {
     ...brandActual,
-    facebook: texto(redesEntrada.facebook, 300),
-    instagram: texto(redesEntrada.instagram, 300),
-    tiktok: texto(redesEntrada.tiktok, 300),
+    facebook: validarRed(redesEntrada.facebook, "Facebook"),
+    instagram: validarRed(redesEntrada.instagram, "Instagram"),
+    tiktok: validarRed(redesEntrada.tiktok, "TikTok"),
   };
 
   const emailContacto = validarEmail(datos.email_contacto ?? actual.email_contacto, "email de contacto");
@@ -270,6 +299,9 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
 }
 
 export default async function handler(req: any, res: any) {
+  // Ninguna respuesta del panel (incluido el token de sesión) debe cachearse.
+  encabezado(res, "Cache-Control", "no-store");
+
   if (metodo(req) !== "POST") {
     return fallo(res, 405, "METODO_NO_PERMITIDO", "Use POST.");
   }
@@ -280,17 +312,8 @@ export default async function handler(req: any, res: any) {
   if (!accion) return fallo(res, 400, "VALIDACION", "Falta la acción.");
 
   try {
-    if (accion === "estado_login") {
-      const estado = await estadoRateLimit(ipCliente(req));
-      return responder(res, 200, { ok: true, ...estado, max: 5 });
-    }
     if (accion === "verificar") {
       return await verificarLogin(req, res, body, slug);
-    }
-    if (accion === "listar_publico") {
-      const tenant = await buscarTenant(slug);
-      if (!tenant) return fallo(res, 404, "TENANT_NO_ENCONTRADO", "El negocio no existe.");
-      return responder(res, 200, { ok: true, tenant: parametrosTenant(tenant) });
     }
     if (accion === "salir") {
       // El token vive en sessionStorage; el cliente lo borra. No hay estado en el servidor.

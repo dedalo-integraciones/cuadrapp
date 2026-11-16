@@ -15,8 +15,8 @@
 - **Fase 4 — Autenticación**: email + clave con bcryptjs, token de sesión firmado
   (HMAC-SHA256) en `sessionStorage`, vencimiento de 30 minutos sin actividad y
   renovación en cada acción, revalidación de membership en cada request,
-  rate-limit de login (5 intentos por IP cada 15 minutos) y auditoría en
-  `audit_log`.
+  rate-limit de login (5 intentos por IP y 10 por email cada 15 minutos, con
+  incremento atómico) y auditoría en `audit_log`.
 - **Fase 5 — Panel de administración** (`/admin`): login, 4 pestañas
   (Productos, Categorías, Rubros, Configuración), buscador y filtros de
   productos, CRUD completo, alta lógica/baja lógica, borrado con doble
@@ -32,6 +32,14 @@
   `VITE_TENANT` y `CLOUDINARY_FOLDER` son obligatorios; los defaults de negocio
   son neutros; el seed exige archivo `.xlsx` y el staging excluye `.env*` salvo
   `.env.example`.
+- **Fase 9 — Remediación de la auditoría de seguridad (16-nov-2026)**: se
+  quitaron la acción pública `listar_publico` y su función cliente; cabeceras de
+  seguridad y CSP; `no-store` en `/api/admin*`; doble límite de login por IP y
+  email con incremento atómico; comparación bcrypt contra hash ficticio;
+  dependencias de producción sin avisos; URLs de redes e imágenes validadas;
+  caché de 30 segundos en `/api/health`; `ADMIN_PASSWORD` vacío en
+  `.env.example`; rewrite limitado a `/admin*` con 404 real. Revocación de
+  sesión: aceptada y documentada, sin lista (ventana máxima de 30 minutos).
 - **Verificación local**: `tsc --noEmit` en 0, `vite build` en verde, CRUD de
   prueba creado/editado/desactivado/borrado por API, login válido e inválido,
   rechazo de borrado con hijos, `/admin` servido por la SPA y flujo de tienda

@@ -164,10 +164,14 @@ function MainAppContent() {
     ]
       .filter(Boolean)
       .join(', ') || ADDRESS;
-  const facebookUrl =
-    typeof tenant.brand.facebook === 'string' && tenant.brand.facebook
-      ? tenant.brand.facebook
-      : FACEBOOK_URL;
+  const facebookGuardada =
+    typeof tenant.brand.facebook === 'string' ? tenant.brand.facebook.trim() : '';
+  // Solo se pinta un enlace absoluto http(s); nunca `javascript:` ni `data:`.
+  const facebookUrl = facebookGuardada
+    ? /^https?:\/\//i.test(facebookGuardada)
+      ? facebookGuardada
+      : ''
+    : FACEBOOK_URL;
   const mapsUrl = direccionTexto
     ? `https://maps.google.com/?q=${encodeURIComponent(direccionTexto)}`
     : MAPS_URL;

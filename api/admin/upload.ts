@@ -2,7 +2,14 @@ import { createHash } from "node:crypto";
 import { autenticarAdmin } from "../../src/server/admin-auth.js";
 import { renovarSesion } from "../../src/server/session.js";
 import { auditar } from "../../src/server/audit.js";
-import { imagenSegura, leerBody, metodo, responder, texto } from "../../src/server/http.js";
+import {
+  encabezado,
+  imagenSegura,
+  leerBody,
+  metodo,
+  responder,
+  texto,
+} from "../../src/server/http.js";
 import { resolverTenantSlug } from "../../src/db/tenant.js";
 
 /**
@@ -40,6 +47,9 @@ function nombreSeguro(valor: unknown, extension: string): string {
 }
 
 export default async function handler(req: any, res: any) {
+  // La respuesta incluye la sesión renovada: no debe cachearse.
+  encabezado(res, "Cache-Control", "no-store");
+
   if (metodo(req) !== "POST") {
     return fallo(res, 405, "METODO_NO_PERMITIDO", "Use POST.");
   }

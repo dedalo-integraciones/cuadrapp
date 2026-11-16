@@ -5,7 +5,6 @@ import type {
   ResumenAdmin,
   RespuestaAdminBase,
   RubroAdmin,
-  TenantPublico,
 } from '../types';
 import { borrarSesion, leerSesion, renovarToken } from '../utils/sesionAdmin';
 
@@ -60,10 +59,6 @@ export interface IdRespuesta extends RespuestaAdminBase {
   id?: number;
 }
 
-export interface PublicoRespuesta extends RespuestaAdminBase {
-  tenant: TenantPublico;
-}
-
 /**
  * El token de sesión se lee de sessionStorage en cada llamada. Así la
  * renovación deslizante que devuelve el servidor se aplica sola, sin que cada
@@ -108,10 +103,6 @@ async function llamar<T extends RespuestaAdminBase>(
   }
 
   return datos as T;
-}
-
-export function listarPublico(tenant: string) {
-  return llamar<PublicoRespuesta>('listar_publico', { tenant });
 }
 
 export function verificarLogin(email: string, password: string, tenant: string) {

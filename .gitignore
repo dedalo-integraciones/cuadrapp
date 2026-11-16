@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# Base de datos local libSQL
+data/
+
 # Local env files
 .env
 .env.*

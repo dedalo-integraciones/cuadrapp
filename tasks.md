@@ -80,6 +80,33 @@
       Evidencia: build sin `VITE_TENANT` aborta con mensaje explícito; seed sin
       archivo y admin sin slug abortan antes de tocar la base; `tsc` 0; build
       verde.
+- [x] **OT#17 — Remediación de la auditoría de seguridad del 16-nov-2026**.
+      Se aplicaron los tres paquetes aprobados sobre los hallazgos B-01 a B-09,
+      B-11 e I-01. B-10 no requirió código: `/api/diag` ya estaba eliminado y
+      responde 404; no se vuelve a publicar.
+      Paquete 1: eliminación de `listar_publico` y de `listarPublico` (B-01);
+      cabeceras de seguridad y CSP en `vercel.json` (B-02); `Cache-Control:
+      no-store` en `/api/admin*` (B-04).
+      Paquete 2: login con doble contador, 5 intentos por IP y 10 por email cada
+      15 minutos, incremento atómico y limpieza de ambos al entrar (B-05);
+      comparación bcrypt contra un hash ficticio cuando el email no existe
+      (B-06); `npm audit fix` sin `--force` y express 4.22.3 (B-08).
+      Paquete 3: validación de URLs de redes y endurecimiento de `imagenSegura`
+      (B-07); caché de 30 segundos y cabeceras en `/api/health` (B-09);
+      revocación de sesión aceptada y documentada, sin lista (B-03);
+      `ADMIN_PASSWORD` vacío en `.env.example` (B-11); rewrite limitado a
+      `/admin*` y página `404.html` real (I-01).
+      Evidencia local (16-nov-2026): `listar_publico` sin token → 401; JSON de
+      `vercel.json` válido; sitio y `/admin` con la CSP nueva → 0 errores de
+      consola; 10/10 pruebas de rate-limit contra libSQL temporal (incluye 20
+      fallos en paralelo sin perder incrementos); `/api/health` con 3 llamadas →
+      1 sola consulta real; `/.env` y `/.git/config` → 404 real; `/` y `/admin`
+      → 200; `tsc` 0; build verde; `npm audit --omit=dev` → 0 vulnerabilidades,
+      con 13 avisos restantes solo en devDependencies y sin arreglo sin
+      `--force`.
+      Pendiente: verificar en producción tras el deploy las cabeceras, el 404
+      real y el health. La clave real del admin de producción debe ser distinta
+      de la que figuraba en `.env.example`; si no se puede confirmar, rotarla.
 
 ## Pendientes
 

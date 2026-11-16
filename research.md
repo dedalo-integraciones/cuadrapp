@@ -138,3 +138,69 @@ un navegador real. El owner confirmó el login correcto en `/admin`.
 - `stage-to-github.bat` excluye cualquier archivo cuyo nombre empiece con
   `.env` (salvo la plantilla `.env.example`), además de `.gitignore` y los
   `.bat` del owner.
+
+## R-AUDIT — Remediación de la auditoría del 16-nov-2026
+Se corrigieron los tres paquetes aprobados. El informe completo quedó en
+`G:\_ Dev\Cuadra.app\Auditoria 16-11-26.txt`.
+
+- **B-01**: se eliminó la acción `listar_publico` de `api/admin/index.ts` y la
+  función `listarPublico` con su interfaz de `src/services/adminService.ts`.
+  Verificado: la acción sin token ahora cae en 401 `SESION_INVALIDA`; no quedan
+  referencias en el código.
+- **B-02**: `vercel.json` agrega `X-Content-Type-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, `X-Frame-Options`, `Cross-Origin-Opener-Policy` y CSP
+  para todo el sitio. Se mantiene `style-src 'unsafe-inline'` por el CSS crítico
+  que inyecta el build y `script-src 'self'` porque el único script inline es
+  JSON-LD. Verificado con un servidor local que aplica la misma cabecera: tienda
+  y `/admin` renderizan con 0 errores de consola y sin violaciones de CSP.
+- **B-04**: `Cache-Control: no-store` al inicio de los handlers de
+  `api/admin/index.ts` y `api/admin/upload.ts`, más reglas para `/api/admin` y
+  `/api/admin/(.*)`. No se aplicó `no-store` a todo `/api/*` porque catálogo y
+  tenant son públicos y cacheables.
+- **B-05**: `rate_limits` usa dos contadores por login, `login:ip:<ip>` y
+  `login:email:<email>`, con umbrales 5 y 10 en una ventana de 15 minutos. El
+  incremento es un `INSERT ... ON CONFLICT DO UPDATE` atómico con reinicio de
+  ventana y bloqueo en la misma sentencia. El login revisa ambos, suma en ambos
+  ante un fallo y limpia ambos al entrar. `estado_login` se eliminó: no tenía
+  referencias en el cliente. Las filas viejas `login:<ip>` quedan huérfanas y se
+  ignoran. Evidencia: 10/10 pruebas contra una base libSQL temporal, incluidos
+  ventana vencida, bloqueo vencido, separación IP/email y 20 fallos en paralelo
+  con contador exacto.
+- **B-06**: si el email no existe, el login compara igual contra `HASH_FICTICIO`
+  (bcrypt costo 12 de un valor aleatorio, no una credencial). El tiempo de
+  respuesta deja de distinguir emails registrados.
+- **B-07**: `urlSegura` acepta solo URLs absolutas http(s), sin credenciales
+  embebidas; `validarRed` la aplica a Facebook, Instagram y TikTok al guardar.
+  `imagenSegura` rechaza `//host` y `/\host`. La tienda, además, solo pinta el
+  enlace de Facebook si empieza con http(s). Verificado con casos
+  `javascript:`, `data:`, `//evil.com`, `/\evil.com` y URL con usuario/clave.
+- **B-08**: `npm audit fix` sin `--force` y actualización explícita de express a
+  4.22.3. Resultado: 0 vulnerabilidades de producción (antes 5: 1 crítica, 1
+  alta, 3 moderadas). Quedan 13 avisos, todos en devDependencies
+  (`@vercel/node`, `drizzle-kit` y sus cadenas); resolverlos exige un cambio
+  mayor y no son alcanzables en las funciones de Vercel.
+- **B-09**: `/api/health` guarda el resultado 30 segundos por instancia; un 200
+  se cachea 10 segundos en el borde y un 503 responde `no-store` con
+  `Retry-After: 30`. Verificado con una base inaccesible: 3 llamadas seguidas
+  produjeron 1 sola consulta real.
+- **B-03**: decisión del owner: aceptar y documentar, sin lista de revocación.
+  El token sigue venciendo a los 30 minutos y `autenticarAdmin` revalida usuario,
+  membership y negocio en cada request. Riesgo residual aceptado: un token
+  robado sirve hasta su vencimiento y cambiar la clave no corta sesiones
+  abiertas. Queda anotado en `src/server/session.ts`.
+- **B-11**: `ADMIN_PASSWORD` quedó vacío en `.env.example`, con comentarios que
+  explican el mínimo y que no debe haber una clave usable en el repo. No se
+  puede confirmar si la clave de producción era la de ejemplo; si el owner no
+  puede asegurar que es distinta, conviene rotarla con `npm run db:admin`.
+- **B-10**: sin cambios de código. `/api/diag` fue eliminado antes de esta
+  auditoría y hoy responde 404; la regla que queda es no volver a publicar
+  diagnósticos públicos.
+- **I-01**: el rewrite de `vercel.json` ya no captura cualquier ruta; solo
+  `/admin` y `/admin/(.*)`. Se agregó `public/404.html` sin JavaScript ni
+  recursos externos. Verificado con las cabeceras nuevas: `/` y `/admin` → 200;
+  `/ruta-inexistente`, `/.env` y `/.git/config` → 404 real; 0 errores de consola
+  en tienda y panel (el 404 del documento es el esperado).
+
+Verificación de cierre: `tsc --noEmit` en 0, build verde y `npm audit
+--omit=dev` en 0. Pendiente de producción: comprobar cabeceras, 404 y health
+después del deploy.

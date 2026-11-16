@@ -16,6 +16,10 @@
 - La sesión vence a los 30 minutos sin actividad. Cada acción exitosa devuelve un
   token renovado, que el servicio guarda sin recargar la pantalla. Mientras hay
   actividad, el panel envía `latido` cada 10 minutos para renovar el token.
+- No hay lista de revocación (decisión B-03, 16-nov-2026). El token solo deja de
+  valer al vencer o si el usuario, su membership o el negocio dejan de ser
+  válidos. Cambiar la clave no corta sesiones abiertas; el riesgo aceptado es una
+  ventana máxima de 30 minutos para un token robado.
 - Al montar, el panel relee la sesión y llama `get_parametros` para validarla.
   Si la respuesta es 401, borra la sesión; si el código es `SESION_INACTIVA`,
   muestra el aviso de inactividad. Si es un error de red, conserva la sesión y
@@ -24,8 +28,9 @@
   sesión y muestra el mismo aviso. Cerrar la pestaña o el navegador vacía
   `sessionStorage`, por lo que la sesión no sobrevive.
 - Logout borra la clave de `sessionStorage` y limpia el estado del panel.
-- Rate-limit de login: 5 intentos por IP cada 15 minutos. El mensaje indica los
-  minutos restantes.
+- Rate-limit de login: 5 intentos por IP y 10 por email cada 15 minutos. Se
+  revisan ambos contadores; un login correcto limpia los dos. El mensaje indica
+  los minutos restantes del bloqueo más largo.
 - Honeypot: campo oculto `sitio_web`; si viene completo, el backend responde
   error genérico sin gastar rate-limit.
 
@@ -101,7 +106,8 @@ Formulario único con secciones:
 - **Dirección**: línea 1, línea 2, localidad, provincia o estado, código postal,
   país.
 - **Redes sociales y moneda**: Facebook, Instagram, TikTok, símbolo de moneda
-  (máximo 3 caracteres).
+  (máximo 3 caracteres). Los enlaces deben ser vacíos o URLs absolutas http(s);
+  el servidor rechaza `javascript:`, `data:` y otros esquemas.
 - **Textos de la tienda**: título principal (80), bajada (160), texto junto al
   WhatsApp (200), pie de página (300). Contador en vivo. Vacío restaura el texto
   original.
@@ -121,7 +127,7 @@ Formulario único con secciones:
   `ALMACENAMIENTO_NO_CONFIGURADO` y el formulario muestra el aviso; la URL
   manual sigue disponible.
 - La imagen se valida como URL http(s) o ruta interna; no se aceptan esquemas
-  peligrosos.
+  peligrosos, `//otro-sitio` ni `/\otro-sitio`.
 
 ## Patrones UI (replicar)
 

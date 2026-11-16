@@ -69,10 +69,30 @@ export function colorHex(valor: unknown): string | null {
   return /^#[0-9A-Fa-f]{6}$/.test(limpio) ? limpio.toUpperCase() : null;
 }
 
+/**
+ * Devuelve la URL solo si es absoluta y usa http(s). Rechaza `javascript:`,
+ * `data:` y cualquier otro esquema, además de URLs con credenciales.
+ */
+export function urlSegura(valor: unknown, max = 300): string | null {
+  const limpio = texto(valor, max);
+  if (!limpio) return null;
+  try {
+    const url = new URL(limpio);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.username || url.password) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 export function imagenSegura(valor: unknown): string | null {
   const limpio = texto(valor, 600);
   if (!limpio) return null;
-  if (limpio.startsWith("/")) return limpio;
-  if (/^https?:\/\/[^\s]+$/i.test(limpio)) return limpio;
-  return null;
+  // Ruta interna: se rechaza `//host` y `/\host`, que el navegador
+  // interpreta como otro origen.
+  if (limpio.startsWith("/") && !limpio.startsWith("//") && !limpio.startsWith("/\\")) {
+    return limpio;
+  }
+  return urlSegura(limpio, 600);
 }

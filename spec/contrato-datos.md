@@ -22,7 +22,8 @@ nombres es un error.
   valor operativo es `pedidos`.
 - `flags` TEXT NOT NULL DEFAULT `{}` — reservado.
 - `brand` TEXT NOT NULL DEFAULT `{}` — JSON de redes: `facebook`, `instagram`,
-  `tiktok`.
+  `tiktok`. Cada valor es vacío o una URL absoluta http(s); el panel rechaza
+  otros esquemas.
 - `turso_db` TEXT NOT NULL — URL de la base del negocio. Secreto de
   infraestructura.
 - `status` TEXT NOT NULL DEFAULT `activo` — `activo` o `suspendido`.
@@ -66,12 +67,15 @@ responde 403 `SIN_PERMISO`; una sesión sin token válido responde 401
 
 ### `rate_limits`
 
-- `clave` TEXT PK — en la práctica, IP del cliente.
+- `clave` TEXT PK — `login:ip:<ip>` o `login:email:<email>`.
 - `intentos` INTEGER NOT NULL DEFAULT 0.
 - `ventana_inicio` INTEGER NOT NULL — epoch en milisegundos.
 - `bloqueado_hasta` INTEGER — epoch en milisegundos o NULL.
 
-Ventana: 5 intentos por IP cada 15 minutos.
+Ventana: 5 intentos por IP y 10 por email cada 15 minutos. El incremento es un
+`INSERT ... ON CONFLICT(clave) DO UPDATE` atómico; el login revisa ambos
+contadores y un ingreso correcto borra las dos filas. Las filas con el formato
+viejo (`login:<ip>`) quedan huérfanas y no se consultan.
 
 ### `audit_log`
 
@@ -218,6 +222,11 @@ Devuelve `{ ok, tenant }` con la misma forma pública, sin catálogo.
 
 Si el core falla, `checks.core = error`. Si no hay tenant por defecto,
 `checks.tenant = sin_tenant`. Responde 503 cuando la cadena no está sana.
+
+El resultado se guarda 30 segundos por instancia para no golpear Turso en cada
+visita. Un 200 se puede cachear 10 segundos en el borde
+(`Cache-Control: public, max-age=10, s-maxage=10, stale-while-revalidate=20`);
+un 503 responde `Cache-Control: no-store` y `Retry-After: 30`.
 
 ## Resolución del tenant
 

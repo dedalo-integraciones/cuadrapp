@@ -699,6 +699,15 @@ export default function AdminPanel() {
             </button>
           </form>
 
+          <div className="mt-3 text-center">
+            <a
+              href="/recuperar-clave"
+              className="text-[11px] font-bold text-[#C8180F] transition hover:text-[#a51410]"
+            >
+              ¿Olvidaste tu clave?
+            </a>
+          </div>
+
           <div className="mt-5 flex items-center justify-center border-t border-stone-100 pt-4">
             <a
               href={`/?tenant=${encodeURIComponent(TENANT)}`}

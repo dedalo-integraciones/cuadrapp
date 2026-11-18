@@ -104,13 +104,90 @@
       → 200; `tsc` 0; build verde; `npm audit --omit=dev` → 0 vulnerabilidades,
       con 13 avisos restantes solo en devDependencies y sin arreglo sin
       `--force`.
-      Pendiente: verificar en producción tras el deploy las cabeceras, el 404
-      real y el health. La clave real del admin de producción debe ser distinta
-      de la que figuraba en `.env.example`; si no se puede confirmar, rotarla.
+      Evidencia de producción (16-nov-2026, tras push): las seis cabeceras y la
+      CSP responden en `/`, `/admin` y las páginas 404; `/api/health` 200 con
+      core y tenant en `ok`, `Cache-Control: public, max-age=10` y cache HIT de
+      borde; `/.env`, `/.git/config` y una ruta inexistente → 404 real con la
+      página nueva; `/api/admin` responde `no-store`, `listar_publico` y
+      `estado_login` → 401; tienda y `/admin` sin errores de consola; catálogo
+      con 2 rubros, 7 categorías y 19 productos; el bundle publicado no contiene
+      `listar_publico` y sí la guardia de URL de Facebook.
+      El owner confirmó el login correcto en producción el 16-nov-2026; el
+      asistente no usó credenciales reales.
+      Verificado el 16-nov-2026: la clave real, guardada en el `.env` local, es
+      distinta de la que estaba publicada en la plantilla vieja. `.env` no está
+      trackeado, está ignorado por git y no existe en `/Github`; por B-11 no hace
+      falta rotarla. La comparación se hizo en memoria, sin imprimir valores.
+
+- [x] **OT#18 - Recuperación de clave del panel por email**.
+      Mismo modelo que Icaria: tabla `password_reset_tokens`, dos endpoints
+      (`POST /api/auth/forgot-password` y `POST /api/auth/reset-password`), dos
+      pantallas (`/recuperar-clave` y `/restablecer-clave`) y enlace "¿Olvidaste
+      tu clave?" en el login. Token de 32 bytes (64 hex), un solo uso, 1 hora de
+      vigencia, respuesta genérica siempre, honeypot `website_url` y auditoría
+      `PASSWORD_RESET_REQUEST` / `PASSWORD_RESET_SUCCESS`. Envío por Resend con
+      remitente `noreply@resend.dev`; la clave de API vive en la tabla privada
+      `app_secrets` del core (no en `.env` de producción, al que no hay acceso).
+      Límites: 3 pedidos/hora por email y 5 intentos/hora por token.
+      Evidencia local (17-nov-2026): email desconocido, inválido, vacío y
+      honeypot devuelven el mismo 200 con `no-store`; token de 64 hex; clave
+      corta → 400 `VALIDACION`; clave válida → 200; reuso y token vencido →
+      `TOKEN_INVALIDO`; login con clave vieja → 401 y con la nueva → 200; 4.º
+      pedido y 6.º intento → `RATE_LIMIT`; las tres pantallas renderizan con 0
+      errores de consola; `tsc` 0; build verde.
+      Producción: migración `0001_password_reset.sql` aplicada; secreto de
+      Resend guardado en `app_secrets` (verificado con
+      `GET https://api.resend.com/domains` → 200); email del administrador
+      cambiado a `dedalo.integraciones@gmail.com`
+      sin tocar la clave; datos de prueba eliminados (usuario
+      `reset-test@example.com`, tokens, límites `reset:*` y auditoría).
+      Falta el deploy y el reset real confirmado por el owner.
+
+- [x] **OT#19 - Términos y condiciones, privacidad y cookies**.
+      Los documentos identifican al negocio (tenant) como vendedor y responsable;
+      Dédalo Integraciones solo desarrolla y comercializa la plataforma y queda
+      ajena al contenido del negocio. Datos en `tenant_legal` (tabla aparte para
+      que la migración sea idempotente): razón social, jurisdicción, entrega por
+      retiro o envío (zonas, demora y costo), plazo y condiciones de cambios,
+      medios de pago, condiciones extra y `vende_alcohol` (interruptor por
+      negocio). Camino estructurado para lo comercial y texto libre para el resto.
+      El panel y el servidor exigen los obligatorios antes de guardar:
+      razón social, documento fiscal, dirección completa, email de contacto,
+      teléfono, horario, jurisdicción, medios de pago, condiciones de cambios y
+      forma de entrega. `fecha_vencimiento` no es editable: ya existía y al vencer
+      bloquea tienda y panel; el panel solo la muestra con la nota "Lo administra
+      la plataforma". Páginas `/terminos` y `/privacidad` (cookies dentro de
+      privacidad, no modales), `LegalShell` con aviso cuando faltan datos y
+      "powered by Dédalo" con enlace a
+      https://dedalointegraciones.vercel.app/. Se quitaron todos los datos y
+      enlaces de Dédalo usados como respaldo en la tienda (dirección, WhatsApp
+      del pie, botón flotante y carrito, Facebook, Google Maps y mensaje del
+      botón flotante); cada acceso se oculta si el negocio no cargó el dato.
+      Carga inicial por CLI: `scripts/cargar-legal-tenant.ts` con plantilla
+      `scripts/legal-ejemplo.json`.
+      Evidencia local (17-nov-2026): migración `0002_tenant_legal.sql` aplicada
+      al core de producción; `/api/tenant/cuadra` y `/api/catalog/cuadra`
+      devuelven `legal.completo: false`; `/terminos` y `/privacidad` muestran el
+      aviso con 0 errores de consola; pie con los tres enlaces; negocio temporal
+      de prueba: `set_parametros` con faltantes → 400 con la lista, con datos
+      completos → 200, endpoints públicos → `legal.completo: true`, y un segundo
+      guardado incompleto → 400 sin tocar lo ya guardado; validación equivalente
+      en el panel; con un negocio temporal con datos completos, `/terminos` y
+      `/privacidad` renderizaron todas las secciones con el vendedor, el
+      domicilio deduplicado y el aviso de alcohol, sin errores de consola;
+      fixture, usuario y auditoría eliminados; `tsc` 0; build verde.
+      Falta el deploy y la carga de los datos reales del demo (OT#19b).
 
 ## Pendientes
 
-- [ ] **OT#11 — Procedimiento de alta de negocios**.
+- [ ] **OT#19b - Datos legales reales del demo**.
+      El tenant `cuadra` es de prueba y no tiene datos legales. Hasta cargarlos,
+      `/terminos` y `/privacidad` muestran "Documentos en preparación". El owner
+      enviará razón social, CUIT, domicilio, contacto y condiciones comerciales;
+      se cargan con `npm run db:tenant:legal -- cuadra <archivo.json>` o desde el
+      panel. Criterio: ambas páginas publican el contenido real.
+
+- [ ] **OT#11 - Procedimiento de alta de negocios**.
       Documentar y probar el alta completa de un tenant nuevo (base, migración,
       admin, catálogo). Criterio: un negocio nuevo opera tienda y panel sin
       tocar código.

@@ -1,4 +1,4 @@
-import type { CatalogoRespuesta } from '../types';
+import type { CatalogoRespuesta, TenantPublico } from '../types';
 
 export class ErrorCatalogo extends Error {
   codigo: string;
@@ -43,4 +43,33 @@ export async function fetchCatalogo(tenant: string, signal?: AbortSignal): Promi
   }
 
   return datos as CatalogoRespuesta;
+}
+
+/** GET /api/tenant/:slug · datos públicos del negocio, incluidos los legales. */
+export async function fetchTenant(tenant: string, signal?: AbortSignal): Promise<TenantPublico> {
+  const respuesta = await fetch(`/api/tenant/${encodeURIComponent(tenant)}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    signal,
+  });
+
+  let datos: Record<string, any> = {};
+  try {
+    datos = await respuesta.json();
+  } catch {
+    datos = {};
+  }
+
+  if (!respuesta.ok || datos.ok === false || !datos.tenant) {
+    const codigo = String(datos.error || 'NEGOCIO_NO_DISPONIBLE');
+    const mensaje =
+      codigo === 'TENANT_NO_ENCONTRADO'
+        ? 'El negocio solicitado no existe.'
+        : codigo === 'TENANT_BLOQUEADO'
+          ? 'El negocio está suspendido o vencido.'
+          : 'No se pudo cargar la información del negocio.';
+    throw new ErrorCatalogo(codigo, mensaje, respuesta.status);
+  }
+
+  return datos.tenant as TenantPublico;
 }

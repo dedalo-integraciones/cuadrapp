@@ -204,3 +204,166 @@ Se corrigieron los tres paquetes aprobados. El informe completo quedó en
 Verificación de cierre: `tsc --noEmit` en 0, build verde y `npm audit
 --omit=dev` en 0. Pendiente de producción: comprobar cabeceras, 404 y health
 después del deploy.
+
+## R-AUDIT-PROD — Verificación en producción del 16-nov-2026
+Sitio: `https://cuadrapp-orcin.vercel.app`. Comprobaciones con HTTP real y el
+navegador integrado, sin usar credenciales.
+
+- Cabeceras presentes en `/`, `/admin` y las respuestas 404:
+  `Content-Security-Policy`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy: camera=(), microphone=(), geolocation=()`,
+  `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin` y HSTS con
+  preload.
+- `GET /api/health` → 200; `core = ok`, `tenant = ok`;
+  `Cache-Control: public, max-age=10`; segunda llamada inmediata con
+  `x-vercel-cache: HIT` y `age: 8`, mismo `timestamp`. El caché de borde y el de
+  30 segundos por instancia funcionan.
+- `GET /.env`, `GET /.git/config` y `GET /ruta-inexistente` → 404 real, con la
+  página nueva y las cabeceras de seguridad. Ya no devuelven el HTML del SPA con
+  200.
+- `POST /api/admin` vacío → 400 `VALIDACION` con `Cache-Control: no-store`;
+  `listar_publico` → 401 `SESION_INVALIDA`; `estado_login` → 401
+  `SESION_INVALIDA`; `GET /api/admin` y `GET /api/admin/upload` → 405 con
+  `no-store`.
+- Login con email inexistente y clave falsa → 401 `TOKEN_INVALIDO` con
+  `no-store`. Primer intento 8,6 s (arranque en frío), segundo 0,9 s. No se
+  probaron credenciales reales ni se agotó el límite de intentos.
+- Navegador: tienda y `/admin` renderizan con 0 errores de consola y 0 avisos de
+  CSP. La página 404 renderiza y el único error de consola es el 404 esperado del
+  documento.
+- Bundle publicado `/assets/index-CRrgEvEc.js` (94.797 bytes): contiene
+  `SESION_INACTIVA` y `latido`, no contiene `listar_publico` y sí la guardia
+  `/^https?:\/\//i` para el enlace de Facebook.
+- `GET /api/catalog/cuadra` → 200 con 2 rubros, 7 categorías y 19 productos;
+  `GET /api/tenant/cuadra` → 200 con `id: cuadra`.
+
+El owner confirmó el login correcto en producción el 16-nov-2026. El asistente
+no usó credenciales reales: solo probó un email inexistente con clave falsa.
+
+Sobre B-11: el owner indicó que la clave de login es la misma que está en el
+`.env` local. La comparación se hizo en memoria y sin imprimir valores: esa clave
+es distinta de la que estaba publicada en la plantilla vieja. `.env` no está
+trackeado, está ignorado por git y no existe en `/Github`. Por lo tanto, la
+ventana de la clave pública quedó cerrada y no hace falta rotarla por B-11. El
+`.env` sigue siendo un archivo local en texto plano: conviene mantener la máquina
+protegida y no copiarlo nunca al repositorio.
+
+## R-RESET - Recuperación de clave por email (17-nov-2026)
+
+Se copió el modelo de Icaria, sin tocarlo: tabla de tokens, dos endpoints, dos
+pantallas y envío por Resend.
+
+- Tablas (`migrations/platform/0001_password_reset.sql`):
+  `password_reset_tokens` (token único de 64 hex, `expires_at`, `used`) y
+  `app_secrets` (secreto de servidor). Ambas creadas en el core de producción.
+- `POST /api/auth/forgot-password`: normaliza el email, aplica honeypot
+  `website_url`, limita a 3 pedidos por email por hora y responde siempre el
+  mismo 200 (`{ ok, mensaje }`) aunque el email no exista, sea inválido o falte.
+- `POST /api/auth/reset-password`: valida la clave (8 a 72), consume el token en
+  una transacción (`used = 1`), responde `TOKEN_INVALIDO` para token falso,
+  vencido o reusado, y limita a 5 intentos por token por hora.
+- Respuestas con `Cache-Control: no-store` en ambos endpoints, también por
+  `vercel.json` para `/api/auth` y `/api/auth/(.*)`.
+- El enlace se arma con `APP_DOMAIN` si existe; si no, con
+  `x-forwarded-host`/`host`, validado con una expresión de host. En producción
+  usa el dominio del deployment.
+- Correo: Resend, remitente `noreply@resend.dev` (la cuenta no tiene dominio
+  verificado y solo entrega al buzón dueño de la cuenta, que es
+  `dedalo.integraciones@gmail.com`). La API key se lee de `app_secrets`; no se
+  pudo usar una variable de Vercel porque no hay acceso al panel.
+- Email del administrador: `admin@cuadra.app` → `dedalo.integraciones@gmail.com`
+  con `npm run db:admin:email`, sin tocar la clave ni el membership. La tabla
+  `users` quedó con un solo usuario.
+
+Evidencia local (17-nov-2026, `npx tsx server.ts` en el puerto 3100):
+
+- Email desconocido, inválido, vacío y honeypot → 200 con el mensaje genérico y
+  `no-store`.
+- Token de 64 hex; clave corta → 400 `VALIDACION`; clave válida → 200; reuso →
+  `TOKEN_INVALIDO`; token vencido a mano → `TOKEN_INVALIDO`.
+- Login con la clave vieja → 401; con la nueva → 200 con sesión.
+- Rate-limit: 4.º pedido por email y 6.º intento por token → `RATE_LIMIT`.
+- `/recuperar-clave`, `/restablecer-clave` y `/admin` renderizan con 0 errores de
+  consola; `tsc --noEmit` 0; build verde.
+
+Evidencia de producción: migración aplicada en Turso; `app_secrets` con
+`RESEND_API_KEY` (36 caracteres, formato `re_...`, valor no mostrado) y
+`GET https://api.resend.com/domains` → 200; `users` con
+`dedalo.integraciones@gmail.com` como único administrador. Se eliminó el usuario
+temporal `reset-test@example.com`, sus 3 tokens, los 6 límites `reset:*` y las 6
+filas de auditoría de prueba.
+
+Incidente del `.env` local: al actualizar el archivo se sobrescribió por error y
+se reconstruyó con los cuatro valores de `inicio\Cuadra tokens.txt` (Turso), la
+cuenta de Cloudinary de Icaria y un `SESSION_SECRET` nuevo. `ADMIN_PASSWORD` no
+se pudo recuperar y se dejó fuera: solo lo usan los scripts de alta, que fallan
+con un mensaje claro si falta. La conexión core respondió correcta después de la
+reconstrucción (1 usuario, 1 tenant, 1 secreto), lo que valida los tokens Turso;
+Cloudinary respondió 200 a una consulta de recursos con las credenciales
+reconstruidas (sin subir ninguna imagen). Durante la reconstrucción, algunos
+valores quedaron visibles en la sesión local de OpenCode: si esa sesión se
+comparte o se exporta, conviene rotar el token de Turso y la clave de Resend
+(esta última es compartida con Icaria).
+
+## R-LEGAL - Términos, privacidad y datos del tenant (17-nov-2026)
+
+Los documentos legales se generan con los datos del negocio, no con datos de
+Dédalo. Dédalo Integraciones figura solo como desarrollador y comercializador de
+la plataforma, ajeno a la relación comercial.
+
+- **Tabla aparte** (`migrations/platform/0002_tenant_legal.sql`): 13 columnas más
+  `actualizado_en`, con `tenant_id` como PK y FK a `tenants`. No se agregaron
+  columnas a `tenants` porque `ALTER TABLE` no es idempotente y `migrarCore` corre
+  todos los `.sql` en cada ejecución. Sin fila, el negocio se considera con datos
+  incompletos.
+- **Obligatorios** (`faltantesLegal`, compartido por API y panel): razón social,
+  documento fiscal, dirección completa (línea 1, localidad, provincia, país),
+  email de contacto, teléfono, horario, jurisdicción, medios de pago, condiciones
+  de cambios y al menos una forma de entrega. Si hay envío, exige zonas, demora y
+  costo. Si no hay fila o faltan campos, `legal.completo` es `false`.
+- **Valores comerciales estructurados** (`entrega_retiro`, `entrega_envio`,
+  `entrega_zonas`, `entrega_demora`, `envio_costo_cents`, `cambios_plazo_dias`,
+  `medios_pago`, `vende_alcohol`) y **texto libre** para condiciones de cambios,
+  condiciones extra y razón social. Los precios se guardan en centavos.
+- **`vende_alcohol`** es un interruptor por negocio: agrega el bloque de edad
+  mínima y venta responsable en los términos.
+- **`fecha_vencimiento`** no se expone como editable. Ya existía y
+  `tenantVigente` bloquea tienda y panel al vencer; el panel la muestra con la
+  nota "Lo administra la plataforma".
+- **API pública**: `GET /api/tenant/:slug` y `GET /api/catalog/:slug` incluyen
+  `tenant.legal` con `completo`; nunca exponen `turso_db` ni tokens.
+- **Páginas**: `/terminos` y `/privacidad` (cookies dentro de privacidad) con
+  `LegalShell`, que muestra "Documentos en preparación" cuando `completo` es
+  `false` en vez de publicar contenido inventado. El pie de la tienda enlaza
+  ambas páginas y "powered by Dédalo".
+- **Sin respaldos de Dédalo**: se quitaron todos los datos y enlaces de Dédalo
+  usados como respaldo en la tienda: dirección y enlace de Google Maps, WhatsApp
+  del pie, del botón flotante y del carrito, enlace de Facebook y mensaje del
+  botón flotante. Cada acceso se oculta si el negocio no cargó el dato.
+- **Carga inicial**: `npm run db:tenant:legal -- <slug> <archivo.json>` con la
+  plantilla `scripts/legal-ejemplo.json`; la usa Dédalo al vender la suscripción.
+  El archivo no se versiona con datos reales.
+
+Evidencia local (17-nov-2026, puerto 3100):
+
+- `GET /api/tenant/cuadra` y `/api/catalog/cuadra` → 200 con
+  `legal.completo: false` y las 15 claves esperadas.
+- `/terminos` y `/privacidad` → aviso controlado, enlaces del pie correctos y 0
+  errores de consola.
+- Negocio y usuario temporales creados por script: `set_parametros` sin datos
+  legales → 400 `VALIDACION` con la lista de faltantes; con datos completos →
+  200 y `legal_faltantes` vacío; endpoints públicos → `legal.completo: true` con
+  los valores guardados; segundo guardado incompleto → 400 sin modificar lo
+  anterior. El panel bloquea antes de enviar con el mismo criterio.
+- Fixture eliminado: tenant, usuario, membership, fila legal y 5 registros de
+  auditoría. El core quedó con 1 tenant (`cuadra`), 1 usuario
+  (`dedalo.integraciones@gmail.com`) y sin filas en `tenant_legal`.
+- Negocio temporal con datos completos: `/terminos` y `/privacidad` renderizaron
+  todas las secciones (incluido el bloque de alcohol), con razón social, CUIT,
+  domicilio sin repetir ciudad y provincia, y 0 errores de consola. Fixture
+  eliminado.
+- `tsc --noEmit` 0; `vite build` verde.
+
+Pendiente: el tenant `cuadra` es de prueba y no tiene datos legales reales; el
+owner los enviará. Falta el deploy.

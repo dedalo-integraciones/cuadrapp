@@ -46,6 +46,27 @@ export interface DireccionTenant {
   pais: string | null;
 }
 
+export interface LegalTenant {
+  razon_social: string;
+  jurisdiccion: string;
+  entrega_retiro: boolean;
+  entrega_envio: boolean;
+  entrega_zonas: string;
+  entrega_demora: string;
+  envio_costo_cents: number | null;
+  cambios_plazo_dias: number | null;
+  cambios_condiciones: string;
+  medios_pago: string;
+  condiciones_extra: string;
+  vende_alcohol: boolean;
+}
+
+export interface LegalPublica extends LegalTenant {
+  documento_fiscal: string;
+  actualizado_en: string;
+  completo: boolean;
+}
+
 export interface TenantPublico {
   id: string;
   name: string;
@@ -66,6 +87,7 @@ export interface TenantPublico {
     hero_bajada: string | null;
     footer: string | null;
   };
+  legal: LegalPublica;
 }
 
 export interface CatalogoRespuesta {
@@ -162,6 +184,8 @@ export interface ParametrosAdmin {
   texto_hero: string;
   texto_hero_bajada: string;
   texto_footer: string;
+  legal: LegalTenant;
+  legal_faltantes: string[];
 }
 
 export interface RespuestaAdminBase {

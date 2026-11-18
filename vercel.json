@@ -12,6 +12,22 @@
     {
       "source": "/admin/(.*)",
       "destination": "/index.html"
+    },
+    {
+      "source": "/recuperar-clave",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/restablecer-clave",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/terminos",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/privacidad",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -55,6 +71,24 @@
     },
     {
       "source": "/api/admin/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/auth",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/auth/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

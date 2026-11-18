@@ -53,6 +53,103 @@ export type TenantRow = {
   created_at: string;
 };
 
+export type TenantLegalRow = {
+  tenant_id: string;
+  razon_social: string;
+  jurisdiccion: string;
+  entrega_retiro: number | boolean;
+  entrega_envio: number | boolean;
+  entrega_zonas: string;
+  entrega_demora: string;
+  envio_costo_cents: number | null;
+  cambios_plazo_dias: number | null;
+  cambios_condiciones: string;
+  medios_pago: string;
+  condiciones_extra: string;
+  vende_alcohol: number | boolean;
+  actualizado_en: string;
+};
+
+/** Datos legales del negocio. Sin fila, se devuelve null (incompletos). */
+export async function leerLegalTenant(tenantId: string): Promise<TenantLegalRow | null> {
+  const rs = await getCoreClient().execute({
+    sql: "SELECT * FROM tenant_legal WHERE tenant_id = ? LIMIT 1",
+    args: [tenantId],
+  });
+  if (rs.rows.length === 0) return null;
+  return rs.rows[0] as unknown as TenantLegalRow;
+}
+
+function textoLegal(valor: unknown): string {
+  return String(valor ?? "").trim();
+}
+
+/**
+ * Datos legales que puede ver un visitante. `completo` indica si están todos
+ * los obligatorios: con `false`, las páginas legales muestran un aviso y no
+ * publican contenido inventado.
+ */
+export function legalPublica(tenant: TenantRow, legal: TenantLegalRow | null) {
+  const datos = {
+    razon_social: textoLegal(legal?.razon_social),
+    documento_fiscal: textoLegal(tenant.documento_fiscal),
+    jurisdiccion: textoLegal(legal?.jurisdiccion),
+    entrega_retiro: Number(legal?.entrega_retiro ?? 0) === 1,
+    entrega_envio: Number(legal?.entrega_envio ?? 0) === 1,
+    entrega_zonas: textoLegal(legal?.entrega_zonas),
+    entrega_demora: textoLegal(legal?.entrega_demora),
+    envio_costo_cents:
+      legal?.envio_costo_cents === null || legal?.envio_costo_cents === undefined
+        ? null
+        : Number(legal.envio_costo_cents),
+    cambios_plazo_dias:
+      legal?.cambios_plazo_dias === null || legal?.cambios_plazo_dias === undefined
+        ? null
+        : Number(legal.cambios_plazo_dias),
+    cambios_condiciones: textoLegal(legal?.cambios_condiciones),
+    medios_pago: textoLegal(legal?.medios_pago),
+    condiciones_extra: textoLegal(legal?.condiciones_extra),
+    vende_alcohol: Number(legal?.vende_alcohol ?? 0) === 1,
+    actualizado_en: textoLegal(legal?.actualizado_en),
+  };
+
+  return { ...datos, completo: faltantesLegal(tenant, legal).length === 0 };
+}
+
+/** Campos obligatorios que faltan para publicar los documentos legales. */
+export function faltantesLegal(tenant: TenantRow, legal: TenantLegalRow | null): string[] {
+  const faltan: string[] = [];
+  const agregar = (valor: unknown, etiqueta: string) => {
+    if (!textoLegal(valor)) faltan.push(etiqueta);
+  };
+
+  agregar(legal?.razon_social, "razón social");
+  agregar(tenant.documento_fiscal, "documento fiscal");
+  agregar(tenant.direccion_linea1, "dirección");
+  agregar(tenant.localidad, "localidad");
+  agregar(tenant.provincia_estado, "provincia");
+  agregar(tenant.pais, "país");
+  agregar(tenant.email_contacto, "email de contacto");
+  agregar(tenant.telefono, "teléfono");
+  agregar(tenant.horario_atencion, "horario de atención");
+  agregar(legal?.jurisdiccion, "jurisdicción");
+  agregar(legal?.medios_pago, "medios de pago");
+  agregar(legal?.cambios_condiciones, "condiciones de cambios y devoluciones");
+
+  const retiro = Number(legal?.entrega_retiro ?? 0) === 1;
+  const envio = Number(legal?.entrega_envio ?? 0) === 1;
+  if (!retiro && !envio) faltan.push("forma de entrega (retiro o envío)");
+  if (envio) {
+    agregar(legal?.entrega_zonas, "zonas de envío");
+    agregar(legal?.entrega_demora, "demora estimada de envío");
+  }
+  if (legal?.cambios_plazo_dias === null || legal?.cambios_plazo_dias === undefined) {
+    faltan.push("plazo de cambios");
+  }
+
+  return faltan;
+}
+
 /** Lee un tenant de la base core. Devuelve null si no existe. */
 export async function buscarTenant(slug: string): Promise<TenantRow | null> {
   const id = String(slug || "").trim().toLowerCase();
@@ -115,7 +212,7 @@ export function parseJsonSeguro(valor: unknown, porDefecto: Record<string, unkno
 }
 
 /** Datos que puede ver cualquier visitante. Nunca incluye `turso_db`. */
-export function datosPublicosTenant(tenant: TenantRow) {
+export function datosPublicosTenant(tenant: TenantRow, legal: TenantLegalRow | null = null) {
   return {
     id: tenant.id,
     name: tenant.name,
@@ -143,11 +240,12 @@ export function datosPublicosTenant(tenant: TenantRow) {
       hero_bajada: tenant.texto_hero_bajada,
       footer: tenant.texto_footer,
     },
+    legal: legalPublica(tenant, legal),
   };
 }
 
 /** Datos completos para el panel (sin secretos de infraestructura). */
-export function parametrosTenant(tenant: TenantRow) {
+export function parametrosTenant(tenant: TenantRow, legal: TenantLegalRow | null = null) {
   return {
     tenant_id: tenant.id,
     nombre_comercial: tenant.name,
@@ -176,5 +274,26 @@ export function parametrosTenant(tenant: TenantRow) {
     texto_hero: tenant.texto_hero || "",
     texto_hero_bajada: tenant.texto_hero_bajada || "",
     texto_footer: tenant.texto_footer || "",
+    legal: {
+      razon_social: legal?.razon_social || "",
+      jurisdiccion: legal?.jurisdiccion || "",
+      entrega_retiro: Number(legal?.entrega_retiro ?? 0) === 1,
+      entrega_envio: Number(legal?.entrega_envio ?? 0) === 1,
+      entrega_zonas: legal?.entrega_zonas || "",
+      entrega_demora: legal?.entrega_demora || "",
+      envio_costo_cents:
+        legal?.envio_costo_cents === null || legal?.envio_costo_cents === undefined
+          ? null
+          : Number(legal.envio_costo_cents),
+      cambios_plazo_dias:
+        legal?.cambios_plazo_dias === null || legal?.cambios_plazo_dias === undefined
+          ? null
+          : Number(legal.cambios_plazo_dias),
+      cambios_condiciones: legal?.cambios_condiciones || "",
+      medios_pago: legal?.medios_pago || "",
+      condiciones_extra: legal?.condiciones_extra || "",
+      vende_alcohol: Number(legal?.vende_alcohol ?? 0) === 1,
+    },
+    legal_faltantes: faltantesLegal(tenant, legal),
   };
 }

@@ -1,11 +1,11 @@
 import { getCoreClient } from "../db/core.js";
 
-/** Ámbitos del límite de intentos: por IP y por cuenta. */
+/** Ámbitos del límite de intentos del login: por IP y por cuenta. */
 export type AmbitoRateLimit = "ip" | "email";
 
 /**
- * Intentos permitidos por ventana. El email tiene un margen mayor para no
- * facilitar el bloqueo de una cuenta desde varias IPs.
+ * Intentos permitidos por ventana del login. El email tiene un margen mayor
+ * para no facilitar el bloqueo de una cuenta desde varias IPs.
  */
 export const MAX_INTENTOS: Record<AmbitoRateLimit, number> = {
   ip: 5,
@@ -25,15 +25,19 @@ function clave(ambito: AmbitoRateLimit, valor: string): string {
   return `login:${ambito}:${valor}`;
 }
 
-export async function estadoRateLimit(
-  ambito: AmbitoRateLimit,
-  valor: string
+/**
+ * Estado de un contador genérico. La clave incluye el prefijo del flujo
+ * (`login:`, `reset:`) para que los contadores no se mezclen.
+ */
+export async function estadoLimite(
+  claveContador: string,
+  max: number,
+  ventanaMs: number
 ): Promise<EstadoRateLimit> {
   const ahora = Date.now();
-  const max = MAX_INTENTOS[ambito];
   const rs = await getCoreClient().execute({
     sql: "SELECT intentos, ventana_inicio, bloqueado_hasta FROM rate_limits WHERE clave = ? LIMIT 1",
-    args: [clave(ambito, valor)],
+    args: [claveContador],
   });
   if (rs.rows.length === 0) {
     return { permitido: true, intentos: 0, restantes: max, minutosRestantes: 0 };
@@ -49,7 +53,7 @@ export async function estadoRateLimit(
     };
   }
   const ventana = Number(fila["ventana_inicio"] || 0);
-  if (ahora - ventana > VENTANA_MS) {
+  if (ahora - ventana > ventanaMs) {
     return { permitido: true, intentos: 0, restantes: max, minutosRestantes: 0 };
   }
   const intentos = Number(fila["intentos"] || 0);
@@ -61,16 +65,19 @@ export async function estadoRateLimit(
   };
 }
 
-export async function registrarFallo(
-  ambito: AmbitoRateLimit,
-  valor: string
+/**
+ * Registra un intento. Un solo UPSERT: si la ventana venció reinicia el
+ * contador; si no, incrementa de forma atómica. Evita perder intentos por
+ * concurrencia.
+ */
+export async function registrarIntento(
+  claveContador: string,
+  max: number,
+  ventanaMs: number
 ): Promise<void> {
   const ahora = Date.now();
-  const inicioVentana = ahora - VENTANA_MS;
-  const max = MAX_INTENTOS[ambito];
+  const inicioVentana = ahora - ventanaMs;
 
-  // Un solo UPSERT: si la ventana venció reinicia el contador; si no,
-  // incrementa de forma atómica. Evita perder intentos por concurrencia.
   await getCoreClient().execute({
     sql: `INSERT INTO rate_limits (clave, intentos, ventana_inicio, bloqueado_hasta)
           VALUES (?, 1, ?, NULL)
@@ -89,24 +96,42 @@ export async function registrarFallo(
               ELSE rate_limits.bloqueado_hasta
             END`,
     args: [
-      clave(ambito, valor),
+      claveContador,
       ahora,
       inicioVentana,
       inicioVentana,
       ahora,
       inicioVentana,
       max,
-      ahora + VENTANA_MS,
+      ahora + ventanaMs,
     ],
   });
+}
+
+export async function limpiarLimite(claveContador: string): Promise<void> {
+  await getCoreClient().execute({
+    sql: "DELETE FROM rate_limits WHERE clave = ?",
+    args: [claveContador],
+  });
+}
+
+export async function estadoRateLimit(
+  ambito: AmbitoRateLimit,
+  valor: string
+): Promise<EstadoRateLimit> {
+  return estadoLimite(clave(ambito, valor), MAX_INTENTOS[ambito], VENTANA_MS);
+}
+
+export async function registrarFallo(
+  ambito: AmbitoRateLimit,
+  valor: string
+): Promise<void> {
+  return registrarIntento(clave(ambito, valor), MAX_INTENTOS[ambito], VENTANA_MS);
 }
 
 export async function limpiarRateLimit(
   ambito: AmbitoRateLimit,
   valor: string
 ): Promise<void> {
-  await getCoreClient().execute({
-    sql: "DELETE FROM rate_limits WHERE clave = ?",
-    args: [clave(ambito, valor)],
-  });
+  return limpiarLimite(clave(ambito, valor));
 }

@@ -72,3 +72,27 @@ export const auditLog = sqliteTable("audit_log", {
   detalle: text("detalle").notNull().default("{}"),
   created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
+
+/**
+ * Tokens de recuperación de clave. Se guardan en claro porque el token es de
+ * un solo uso, vive una hora y no permite deducir la clave; el valor que
+ * importa (la clave nueva) se guarda con bcrypt en `users`.
+ */
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+  user_id: integer("user_id", { mode: "number" }).notNull().references(() => users.id),
+  token: text("token").notNull().unique(),
+  expires_at: text("expires_at").notNull(),
+  used: integer("used", { mode: "number" }).notNull().default(0),
+  created_at: text("created_at").notNull().default(sql`(datetime('now'))`),
+});
+
+/**
+ * Secretos de servidor que no se pueden cargar como variable de entorno.
+ * Solo los lee el backend; ninguna API pública devuelve esta tabla.
+ */
+export const appSecrets = sqliteTable("app_secrets", {
+  clave: text("clave").primaryKey(),
+  valor: text("valor").notNull(),
+  actualizado_en: text("actualizado_en").notNull().default(sql`(datetime('now'))`),
+});

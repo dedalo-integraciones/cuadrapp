@@ -34,6 +34,28 @@
 - Honeypot: campo oculto `sitio_web`; si viene completo, el backend responde
   error genérico sin gastar rate-limit.
 
+## Recuperación de clave
+
+- Rutas públicas `/recuperar-clave` y `/restablecer-clave?token=...`, detectadas
+  en `src/main.tsx` con `^/recuperar-clave$` y `^/restablecer-clave$`. Las dos
+  están en los rewrites de `vercel.json`.
+- En el login, el enlace "¿Olvidaste tu clave?" lleva a `/recuperar-clave`. La
+  pantalla pide el email y responde siempre el mismo mensaje: "Si el email está
+  registrado, recibirás instrucciones. El link expira en 1 hora."
+- El correo lo envía Resend con el remitente `RESEND_FROM_EMAIL` (por defecto
+  `noreply@resend.dev`). La clave de API se lee de la tabla privada
+  `app_secrets` o, si no está, de la variable de entorno del mismo nombre.
+- El token es de 32 bytes en hexadecimal, sirve una sola vez y vence a la hora.
+  `POST /api/auth/reset-password` valida la clave nueva (8 a 72 caracteres),
+  consume el token y responde `TOKEN_INVALIDO` si es falso, ya se usó o venció.
+  El panel no abre sesión: la persona vuelve al login y entra con la clave nueva.
+- Límites: 3 pedidos por email por hora y 5 intentos por token por hora. Ambas
+  respuestas usan `Cache-Control: no-store`.
+- Auditoría: `PASSWORD_RESET_REQUEST` al pedir y `PASSWORD_RESET_SUCCESS` al
+  cambiar. Nunca se guarda el token ni la clave.
+- El email del administrador recibe el link. Cambiarlo sin tocar la clave es
+  `npm run db:admin:email -- <anterior> <nuevo>`.
+
 ## Estructura de la pantalla
 
 - **Login**: logo, identificación del negocio, email, clave con botón de
@@ -100,11 +122,20 @@
 
 Formulario único con secciones:
 
-- **Datos del negocio**: nombre comercial (obligatorio), documento fiscal,
-  teléfono, WhatsApp general, WhatsApp de pedidos (obligatorio), horario,
-  email de contacto y email de pedidos (formato validado).
-- **Dirección**: línea 1, línea 2, localidad, provincia o estado, código postal,
-  país.
+- **Datos del negocio**: nombre comercial (obligatorio), documento fiscal
+  (obligatorio, CUIT; se publica en los términos), teléfono (obligatorio),
+  WhatsApp general, WhatsApp de pedidos (obligatorio), horario de atención
+  (obligatorio), email de contacto (obligatorio y con formato validado) y email
+  de pedidos (formato validado).
+- **Dirección**: línea 1 (obligatoria), línea 2, localidad (obligatoria),
+  provincia o estado (obligatoria), código postal y país (obligatorio).
+- **Datos legales y comerciales**: razón social (obligatoria), jurisdicción
+  (obligatoria), medios de pago (obligatorios), plazo de cambios en días
+  (obligatorio), condiciones de cambios y devoluciones (obligatorias),
+  condiciones adicionales (opcional), interruptores de retiro en el local, envío
+  a domicilio y venta de alcohol. Si hay envío, exige zonas, demora y costo en
+  pesos (0 = sin cargo; se guarda en `envio_costo_cents`). Los campos con `*` y
+  las leyendas bajo cada uno explican el uso.
 - **Redes sociales y moneda**: Facebook, Instagram, TikTok, símbolo de moneda
   (máximo 3 caracteres). Los enlaces deben ser vacíos o URLs absolutas http(s);
   el servidor rechaza `javascript:`, `data:` y otros esquemas.
@@ -112,7 +143,13 @@ Formulario único con secciones:
   WhatsApp (200), pie de página (300). Contador en vivo. Vacío restaura el texto
   original.
 - **Estado del servicio** (solo lectura): versión (`mode`), límite de productos
-  (`max_registros`) y vencimiento.
+  (`max_registros`) y vencimiento, con la nota "Lo administra la plataforma. Al
+  vencer, la tienda y el panel dejan de operar."
+- Si ya hay datos legales incompletos, arriba del formulario aparece el aviso
+  "Faltan datos legales obligatorios" con la lista.
+- Guardar valida en el navegador con el mismo criterio que el servidor
+  (`faltantesCliente`): si falta algo, muestra el error y no envía. El servidor
+  responde 400 `VALIDACION` con la lista y no escribe nada.
 - Guardar llama `set_parametros`; al volver, el panel actualiza la configuración
   y muestra un aviso de éxito.
 
@@ -175,7 +212,7 @@ Códigos de error relevantes: `VALIDACION` (400), `TOKEN_INVALIDO` (401),
 ## Lo que NO existe en v1
 
 - Pestañas de Órdenes, Clientes, Pagos, Superadmin o Exportaciones.
-- Recuperación de clave por email.
+- Edición de `fecha_vencimiento`: la administra la plataforma.
 - Edición de la marca visual (logo, colores de tienda, favicon).
 - Historial visible de auditoría dentro del panel.
 - Borrado en cascada de rubros con categorías o categorías con productos.

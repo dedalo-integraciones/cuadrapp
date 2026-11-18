@@ -2,10 +2,13 @@ import bcrypt from "bcryptjs";
 import { getCoreClient } from "../../src/db/core.js";
 import {
   buscarTenant,
+  faltantesLegal,
+  leerLegalTenant,
   parametrosTenant,
   parseJsonSeguro,
   resolverTenantSlug,
   tenantVigente,
+  type TenantLegalRow,
 } from "../../src/db/tenant.js";
 import { autenticarAdmin } from "../../src/server/admin-auth.js";
 import { crearSesion, renovarSesion } from "../../src/server/session.js";
@@ -61,6 +64,16 @@ function idValido(valor: unknown, campo = "id"): number {
   const n = entero(valor, 0);
   if (n <= 0) throw new ErrorApi(400, "VALIDACION", `El campo ${campo} no es válido.`);
   return n;
+}
+
+/** Entero opcional: vacío o ausente queda en null; negativo es error. */
+function enteroOpcional(valor: unknown, campo: string): number | null {
+  if (valor === null || valor === undefined || String(valor).trim() === "") return null;
+  const n = Number(valor);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new ErrorApi(400, "VALIDACION", `El campo ${campo} debe ser un número mayor o igual a 0.`);
+  }
+  return Math.trunc(n);
 }
 
 function estadoDesdeFila(fila: Record<string, unknown>) {
@@ -239,6 +252,7 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
 
 async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
   const actual = parametrosTenant(auth.tenant);
+  const legalActual = await leerLegalTenant(auth.tenant.id);
   const nombre = requerido(datos.nombre_comercial ?? actual.nombre_comercial, "nombre comercial", 120);
   const whatsappPedidos = requerido(
     datos.whatsapp_pedidos ?? actual.whatsapp_pedidos,
@@ -258,8 +272,74 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
     tiktok: validarRed(redesEntrada.tiktok, "TikTok"),
   };
 
-  const emailContacto = validarEmail(datos.email_contacto ?? actual.email_contacto, "email de contacto");
+  const emailContacto = requerido(
+    validarEmail(datos.email_contacto ?? actual.email_contacto, "email de contacto"),
+    "email de contacto",
+    254
+  );
   const emailPedidos = validarEmail(datos.email_pedidos ?? actual.email_pedidos, "email de pedidos");
+
+  const entradaLegal = (
+    datos.legal && typeof datos.legal === "object" ? datos.legal : {}
+  ) as Record<string, unknown>;
+  const legal = <T extends keyof TenantLegalRow>(campo: T, valorActual: unknown, max: number): string =>
+    texto(entradaLegal[campo] ?? valorActual ?? "", max);
+
+  const legalNueva: TenantLegalRow = {
+    tenant_id: auth.tenant.id,
+    razon_social: legal("razon_social", legalActual?.razon_social, 120),
+    jurisdiccion: legal("jurisdiccion", legalActual?.jurisdiccion, 120),
+    entrega_retiro: booleanoInt(entradaLegal.entrega_retiro ?? legalActual?.entrega_retiro, 0),
+    entrega_envio: booleanoInt(entradaLegal.entrega_envio ?? legalActual?.entrega_envio, 0),
+    entrega_zonas: legal("entrega_zonas", legalActual?.entrega_zonas, 200),
+    entrega_demora: legal("entrega_demora", legalActual?.entrega_demora, 120),
+    envio_costo_cents: enteroOpcional(
+      entradaLegal.envio_costo_cents ?? legalActual?.envio_costo_cents,
+      "costo de envío"
+    ),
+    cambios_plazo_dias: enteroOpcional(
+      entradaLegal.cambios_plazo_dias ?? legalActual?.cambios_plazo_dias,
+      "plazo de cambios"
+    ),
+    cambios_condiciones: legal("cambios_condiciones", legalActual?.cambios_condiciones, 600),
+    medios_pago: legal("medios_pago", legalActual?.medios_pago, 200),
+    condiciones_extra: legal("condiciones_extra", legalActual?.condiciones_extra, 800),
+    vende_alcohol: booleanoInt(entradaLegal.vende_alcohol ?? legalActual?.vende_alcohol, 0),
+    actualizado_en: legalActual?.actualizado_en || "",
+  };
+
+  const tenantNuevo = {
+    ...auth.tenant,
+    name: nombre,
+    documento_fiscal: texto(datos.documento_fiscal ?? actual.documento_fiscal, 40),
+    telefono: texto(datos.telefono ?? actual.telefono, 40),
+    whatsapp: texto(datos.whatsapp ?? actual.whatsapp, 40),
+    whatsapp_pedidos: whatsappPedidos,
+    email_contacto: emailContacto,
+    email_pedidos: emailPedidos,
+    horario_atencion: texto(datos.horario_atencion ?? actual.horario_atencion, 120),
+    direccion_linea1: texto(datos.direccion_linea1 ?? actual.direccion_linea1, 160),
+    direccion_linea2: texto(datos.direccion_linea2 ?? actual.direccion_linea2, 160),
+    localidad: texto(datos.localidad ?? actual.localidad, 80),
+    provincia_estado: texto(datos.provincia_estado ?? actual.provincia_estado, 80),
+    codigo_postal: texto(datos.codigo_postal ?? actual.codigo_postal, 20),
+    pais: texto(datos.pais ?? actual.pais, 60),
+    moneda_simbolo: texto(datos.moneda_simbolo ?? actual.moneda_simbolo, 3) || "$",
+    texto_atencion: texto(datos.texto_atencion ?? actual.texto_atencion, 200),
+    texto_hero: texto(datos.texto_hero ?? actual.texto_hero, 80),
+    texto_hero_bajada: texto(datos.texto_hero_bajada ?? actual.texto_hero_bajada, 160),
+    texto_footer: texto(datos.texto_footer ?? actual.texto_footer, 300),
+    brand: JSON.stringify(brand),
+  };
+
+  const faltan = faltantesLegal(tenantNuevo, legalNueva);
+  if (faltan.length > 0) {
+    throw new ErrorApi(
+      400,
+      "VALIDACION",
+      `Complete los datos legales obligatorios: ${faltan.join(", ")}.`
+    );
+  }
 
   await getCoreClient().execute({
     sql: `UPDATE tenants SET
@@ -270,32 +350,70 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
       texto_footer = ?, brand = ?
       WHERE id = ?`,
     args: [
-      nombre,
-      texto(datos.documento_fiscal ?? actual.documento_fiscal, 40),
-      texto(datos.telefono ?? actual.telefono, 40),
-      texto(datos.whatsapp ?? actual.whatsapp, 40),
-      whatsappPedidos,
-      emailContacto,
-      emailPedidos,
-      texto(datos.horario_atencion ?? actual.horario_atencion, 120),
-      texto(datos.direccion_linea1 ?? actual.direccion_linea1, 160),
-      texto(datos.direccion_linea2 ?? actual.direccion_linea2, 160),
-      texto(datos.localidad ?? actual.localidad, 80),
-      texto(datos.provincia_estado ?? actual.provincia_estado, 80),
-      texto(datos.codigo_postal ?? actual.codigo_postal, 20),
-      texto(datos.pais ?? actual.pais, 60),
-      texto(datos.moneda_simbolo ?? actual.moneda_simbolo, 3) || "$",
-      texto(datos.texto_atencion ?? actual.texto_atencion, 200),
-      texto(datos.texto_hero ?? actual.texto_hero, 80),
-      texto(datos.texto_hero_bajada ?? actual.texto_hero_bajada, 160),
-      texto(datos.texto_footer ?? actual.texto_footer, 300),
-      JSON.stringify(brand),
+      tenantNuevo.name,
+      tenantNuevo.documento_fiscal,
+      tenantNuevo.telefono,
+      tenantNuevo.whatsapp,
+      tenantNuevo.whatsapp_pedidos,
+      tenantNuevo.email_contacto,
+      tenantNuevo.email_pedidos,
+      tenantNuevo.horario_atencion,
+      tenantNuevo.direccion_linea1,
+      tenantNuevo.direccion_linea2,
+      tenantNuevo.localidad,
+      tenantNuevo.provincia_estado,
+      tenantNuevo.codigo_postal,
+      tenantNuevo.pais,
+      tenantNuevo.moneda_simbolo,
+      tenantNuevo.texto_atencion,
+      tenantNuevo.texto_hero,
+      tenantNuevo.texto_hero_bajada,
+      tenantNuevo.texto_footer,
+      tenantNuevo.brand,
       auth.tenant.id,
     ],
   });
 
+  await getCoreClient().execute({
+    sql: `INSERT INTO tenant_legal (
+        tenant_id, razon_social, jurisdiccion, entrega_retiro, entrega_envio,
+        entrega_zonas, entrega_demora, envio_costo_cents, cambios_plazo_dias,
+        cambios_condiciones, medios_pago, condiciones_extra, vende_alcohol, actualizado_en
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(tenant_id) DO UPDATE SET
+        razon_social = excluded.razon_social,
+        jurisdiccion = excluded.jurisdiccion,
+        entrega_retiro = excluded.entrega_retiro,
+        entrega_envio = excluded.entrega_envio,
+        entrega_zonas = excluded.entrega_zonas,
+        entrega_demora = excluded.entrega_demora,
+        envio_costo_cents = excluded.envio_costo_cents,
+        cambios_plazo_dias = excluded.cambios_plazo_dias,
+        cambios_condiciones = excluded.cambios_condiciones,
+        medios_pago = excluded.medios_pago,
+        condiciones_extra = excluded.condiciones_extra,
+        vende_alcohol = excluded.vende_alcohol,
+        actualizado_en = datetime('now')`,
+    args: [
+      legalNueva.tenant_id,
+      legalNueva.razon_social,
+      legalNueva.jurisdiccion,
+      legalNueva.entrega_retiro,
+      legalNueva.entrega_envio,
+      legalNueva.entrega_zonas,
+      legalNueva.entrega_demora,
+      legalNueva.envio_costo_cents,
+      legalNueva.cambios_plazo_dias,
+      legalNueva.cambios_condiciones,
+      legalNueva.medios_pago,
+      legalNueva.condiciones_extra,
+      legalNueva.vende_alcohol,
+    ],
+  });
+
   const actualizado = await buscarTenant(auth.tenant.id);
-  return parametrosTenant(actualizado || auth.tenant);
+  const legalGuardada = await leerLegalTenant(auth.tenant.id);
+  return parametrosTenant(actualizado || auth.tenant, legalGuardada);
 }
 
 export default async function handler(req: any, res: any) {
@@ -335,7 +453,8 @@ export default async function handler(req: any, res: any) {
       }
 
       case "get_parametros": {
-        return ok({ ok: true, parametros: parametrosTenant(tenant) });
+        const legal = await leerLegalTenant(tenant.id);
+        return ok({ ok: true, parametros: parametrosTenant(tenant, legal) });
       }
 
       case "set_parametros": {

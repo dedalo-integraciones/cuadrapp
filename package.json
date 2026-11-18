@@ -15,7 +15,10 @@
     "db:migrate": "npm run db:migrate:core && npm run db:migrate:tenant",
     "db:seed": "tsx scripts/seed-cuadra.ts",
     "db:admin": "tsx scripts/create-admin.ts",
-    "db:tenant": "tsx scripts/register-tenant.ts"
+    "db:tenant": "tsx scripts/register-tenant.ts",
+    "db:secreto": "tsx scripts/guardar-secreto.ts",
+    "db:admin:email": "tsx scripts/cambiar-email-admin.ts",
+    "db:tenant:legal": "tsx scripts/cargar-legal-tenant.ts"
   },
   "engines": {
     "node": "24.x"

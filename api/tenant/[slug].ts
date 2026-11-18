@@ -1,4 +1,9 @@
-import { buscarTenant, datosPublicosTenant, tenantVigente } from "../../src/db/tenant.js";
+import {
+  buscarTenant,
+  datosPublicosTenant,
+  leerLegalTenant,
+  tenantVigente,
+} from "../../src/db/tenant.js";
 import { encabezado, metodo, responder } from "../../src/server/http.js";
 
 /** GET /api/tenant/:slug · datos públicos del negocio (sin infraestructura). */
@@ -19,7 +24,8 @@ export default async function handler(req: any, res: any) {
     }
 
     encabezado(res, "Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
-    return responder(res, 200, { ok: true, tenant: datosPublicosTenant(tenant) });
+    const legal = await leerLegalTenant(tenant.id);
+    return responder(res, 200, { ok: true, tenant: datosPublicosTenant(tenant, legal) });
   } catch (error) {
     console.error("[api/tenant] error", error);
     return responder(res, 500, { ok: false, error: "ERROR_INTERNO" });

@@ -2,6 +2,7 @@ import {
   buscarTenant,
   datosPublicosTenant,
   getTenantClient,
+  leerLegalTenant,
   tenantVigente,
 } from "../../src/db/tenant.js";
 import { encabezado, metodo, responder } from "../../src/server/http.js";
@@ -28,7 +29,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const db = getTenantClient(tenant);
-    const [rubrosRs, categoriasRs, productosRs] = await Promise.all([
+    const [rubrosRs, categoriasRs, productosRs, legal] = await Promise.all([
       db.execute(
         "SELECT id, rubro, descripcion, orden, color FROM rubros WHERE activo = 1 ORDER BY orden, id"
       ),
@@ -50,6 +51,7 @@ export default async function handler(req: any, res: any) {
          WHERE p.activo = 1 AND c.activo = 1 AND r.activo = 1
          ORDER BY r.orden, c.orden, p.orden, p.id`
       ),
+      leerLegalTenant(tenant.id),
     ]);
 
     const rubros = rubrosRs.rows.map((fila) => ({
@@ -93,7 +95,7 @@ export default async function handler(req: any, res: any) {
     encabezado(res, "Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     return responder(res, 200, {
       ok: true,
-      tenant: datosPublicosTenant(tenant),
+      tenant: datosPublicosTenant(tenant, legal),
       rubros,
       categorias,
       productos,

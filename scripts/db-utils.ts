@@ -23,10 +23,20 @@ export function ejecutarSql(client: Client, sqlTexto: string): Promise<void> {
 }
 
 export async function migrarCore(): Promise<void> {
-  const ruta = path.resolve(process.cwd(), "migrations/platform/0000_init.sql");
-  const sqlTexto = fs.readFileSync(ruta, "utf8");
-  await ejecutarSql(getCoreClient(), sqlTexto);
-  console.log("[db] core migrado:", process.env.TURSO_CORE_URL);
+  const carpeta = path.resolve(process.cwd(), "migrations/platform");
+  const archivos = fs
+    .readdirSync(carpeta)
+    .filter((archivo) => archivo.endsWith(".sql"))
+    .sort();
+  if (archivos.length === 0) {
+    throw new Error("No hay migraciones de core en migrations/platform");
+  }
+  const client = getCoreClient();
+  for (const archivo of archivos) {
+    const sqlTexto = fs.readFileSync(path.join(carpeta, archivo), "utf8");
+    await ejecutarSql(client, sqlTexto);
+  }
+  console.log("[db] core migrado:", process.env.TURSO_CORE_URL, "·", archivos.join(", "));
 }
 
 export async function migrarTenant(url: string, token?: string | null): Promise<void> {

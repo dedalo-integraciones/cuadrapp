@@ -88,6 +88,57 @@ viejo (`login:<ip>`) quedan huérfanas y no se consultan.
 - `created_at` TEXT NOT NULL DEFAULT `datetime('now')`.
 - Índice `(tenant_id, created_at)`.
 
+### `password_reset_tokens`
+
+- `id` INTEGER PK AUTOINCREMENT.
+- `user_id` INTEGER NOT NULL REFERENCES `users(id)` ON DELETE CASCADE.
+- `token` TEXT NOT NULL UNIQUE — 32 bytes en hexadecimal (64 caracteres).
+- `expires_at` TEXT NOT NULL — una hora después de creado.
+- `used` INTEGER NOT NULL DEFAULT 0 — 1 cuando se consumió.
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`.
+- Índices `(user_id, used)` y `(expires_at)`.
+
+### `app_secrets`
+
+- `clave` TEXT PRIMARY KEY — por ejemplo `RESEND_API_KEY`.
+- `valor` TEXT NOT NULL.
+- `actualizado_en` TEXT NOT NULL DEFAULT `datetime('now')`.
+- Solo se lee desde el servidor; ninguna respuesta de la API la expone.
+  `leerSecreto(nombre)` busca primero en `process.env` y, si no está, en esta
+  tabla.
+
+### `tenant_legal`
+
+Datos legales y comerciales del negocio. Tabla aparte para que la migración sea
+idempotente (`ALTER TABLE` no lo es y `migrarCore` corre todos los `.sql` en cada
+ejecución). Sin fila, el negocio tiene datos legales incompletos: opera, pero
+`/terminos` y `/privacidad` muestran "Documentos en preparación".
+
+- `tenant_id` TEXT PK → `tenants.id` ON DELETE CASCADE.
+- `razon_social` TEXT NOT NULL DEFAULT `''` — titular legal y vendedor.
+- `jurisdiccion` TEXT NOT NULL DEFAULT `''` — por ejemplo `Mendoza, Argentina`.
+- `entrega_retiro` INTEGER NOT NULL DEFAULT 0.
+- `entrega_envio` INTEGER NOT NULL DEFAULT 0.
+- `entrega_zonas` TEXT NOT NULL DEFAULT `''` — obligatorio si hay envío.
+- `entrega_demora` TEXT NOT NULL DEFAULT `''` — obligatorio si hay envío.
+- `envio_costo_cents` INTEGER — centavos; NULL = a coordinar.
+- `cambios_plazo_dias` INTEGER — NULL = sin plazo declarado.
+- `cambios_condiciones` TEXT NOT NULL DEFAULT `''` — texto libre.
+- `medios_pago` TEXT NOT NULL DEFAULT `''`.
+- `condiciones_extra` TEXT NOT NULL DEFAULT `''` — opcional.
+- `vende_alcohol` INTEGER NOT NULL DEFAULT 0 — interruptor por negocio.
+- `actualizado_en` TEXT NOT NULL DEFAULT `datetime('now')`.
+
+Obligatorios para publicar (`faltantesLegal`): razón social, documento fiscal,
+dirección completa (`direccion_linea1`, `localidad`, `provincia_estado`,
+`pais`), email de contacto, teléfono, horario, jurisdicción, medios de pago,
+condiciones de cambios, al menos una forma de entrega y, si hay envío, zonas,
+demora y costo; también el plazo de cambios. El panel y `set_parametros` usan el
+mismo criterio y rechazan el guardado con 400 `VALIDACION`.
+
+`fecha_vencimiento` (en `tenants`) no es editable por el negocio: la administra
+la plataforma y `tenantVigente` bloquea tienda y panel al vencer.
+
 ## Base por negocio
 
 ### `rubros`
@@ -192,6 +243,23 @@ El pedido se arma en el navegador y se envía por WhatsApp. Ver
       "hero": null,
       "hero_bajada": null,
       "footer": null
+    },
+    "legal": {
+      "razon_social": "",
+      "documento_fiscal": "",
+      "jurisdiccion": "",
+      "entrega_retiro": false,
+      "entrega_envio": false,
+      "entrega_zonas": "",
+      "entrega_demora": "",
+      "envio_costo_cents": null,
+      "cambios_plazo_dias": null,
+      "cambios_condiciones": "",
+      "medios_pago": "",
+      "condiciones_extra": "",
+      "vende_alcohol": false,
+      "actualizado_en": "",
+      "completo": false
     }
   },
   "rubros": [],
@@ -203,6 +271,10 @@ El pedido se arma en el navegador y se envía por WhatsApp. Ver
 
 Cada producto incluye `precio_cents`, `precio` (pesos), `id_rubro`, `categoria`,
 `rubro`, `color`, `destacado`, `popular`, `orden` e `imagen`.
+
+`tenant.legal` es la vista pública de `tenant_legal` más
+`documento_fiscal` (`tenants`), `actualizado_en` y `completo`. El sitio solo
+publica el contenido de `/terminos` y `/privacidad` cuando `completo` es `true`.
 
 ### `GET /api/tenant/:slug`
 

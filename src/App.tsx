@@ -3,10 +3,7 @@ import type { CartItem, CatalogoRespuesta, FiltroCatalogo, Producto } from './ty
 import { catalogoDeRespaldo } from './utils/csvParser';
 import { fetchCatalogo, ErrorCatalogo } from './services/catalogoService';
 import {
-  ADDRESS,
   FACEBOOK_HANDLE,
-  FACEBOOK_URL,
-  MAPS_URL,
   tenantActual,
 } from './config';
 import Header from './components/Header';
@@ -163,18 +160,15 @@ function MainAppContent() {
       tenant.direccion.pais,
     ]
       .filter(Boolean)
-      .join(', ') || ADDRESS;
+      .join(', ');
   const facebookGuardada =
     typeof tenant.brand.facebook === 'string' ? tenant.brand.facebook.trim() : '';
-  // Solo se pinta un enlace absoluto http(s); nunca `javascript:` ni `data:`.
-  const facebookUrl = facebookGuardada
-    ? /^https?:\/\//i.test(facebookGuardada)
-      ? facebookGuardada
-      : ''
-    : FACEBOOK_URL;
+  // Solo se pinta un enlace absoluto http(s); si el negocio no cargó uno, no hay enlace.
+  const facebookUrl = /^https?:\/\//i.test(facebookGuardada) ? facebookGuardada : '';
   const mapsUrl = direccionTexto
     ? `https://maps.google.com/?q=${encodeURIComponent(direccionTexto)}`
-    : MAPS_URL;
+    : '';
+  const whatsappDigitos = String(numeroWhatsapp).replace(/\D/g, '');
   const mensajeConsulta = `¡Hola ${tenant.name}! Quiero hacer una consulta.`;
 
   const rubrosPorId = useMemo(() => {
@@ -357,10 +351,11 @@ function MainAppContent() {
 
         <div className={`w-full h-px my-2 transition-colors duration-300 ${isDark ? 'bg-stone-800' : 'bg-stone-200'}`} />
 
+        {whatsappDigitos && (
         <div className="px-3 py-1">
           <a
             id="footer-whatsapp-card"
-            href={`https://wa.me/${String(numeroWhatsapp).replace(/\D/g, '')}?text=${encodeURIComponent(mensajeConsulta)}`}
+            href={`https://wa.me/${whatsappDigitos}?text=${encodeURIComponent(mensajeConsulta)}`}
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-center justify-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-all duration-300 shadow-md group active:scale-[0.98] w-full ${
@@ -392,6 +387,7 @@ function MainAppContent() {
             </div>
           </a>
         </div>
+        )}
 
         <ThemeSwitch />
 
@@ -401,26 +397,63 @@ function MainAppContent() {
           }`}
         >
           <p className="font-bold">
+            {direccionTexto ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1 transition-colors ${
+                  isDark ? 'text-stone-200 hover:text-white' : 'text-stone-800 hover:text-stone-950'
+                }`}
+              >
+                <span>{tenant.name} © {direccionTexto}</span>
+              </a>
+            ) : (
+              <span className={isDark ? 'text-stone-200' : 'text-stone-800'}>{tenant.name}</span>
+            )}
+          </p>
+          {facebookUrl && (
+            <p>
+              <a
+                id="footer-facebook-link"
+                href={facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-bold text-[#1877F2] hover:text-[#166fe5] transition-colors"
+              >
+                <span>{FACEBOOK_HANDLE}</span>
+              </a>
+            </p>
+          )}
+
+          <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
             <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1 transition-colors ${
-                isDark ? 'text-stone-200 hover:text-white' : 'text-stone-800 hover:text-stone-950'
+              href="/terminos"
+              className={`font-bold underline-offset-2 hover:underline transition-colors ${
+                isDark ? 'text-stone-300 hover:text-white' : 'text-stone-700 hover:text-stone-950'
               }`}
             >
-              <span>{tenant.name} © {direccionTexto}</span>
+              Términos y condiciones
             </a>
-          </p>
-          <p>
+            <span aria-hidden="true">·</span>
             <a
-              id="footer-facebook-link"
-              href={facebookUrl}
+              href="/privacidad"
+              className={`font-bold underline-offset-2 hover:underline transition-colors ${
+                isDark ? 'text-stone-300 hover:text-white' : 'text-stone-700 hover:text-stone-950'
+              }`}
+            >
+              Privacidad y cookies
+            </a>
+            <span aria-hidden="true">·</span>
+            <a
+              href="https://dedalointegraciones.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-bold text-[#1877F2] hover:text-[#166fe5] transition-colors"
+              className={`underline-offset-2 hover:underline transition-colors ${
+                isDark ? 'text-stone-400 hover:text-white' : 'text-stone-500 hover:text-stone-900'
+              }`}
             >
-              <span>{FACEBOOK_HANDLE}</span>
+              powered by Dédalo
             </a>
           </p>
 

@@ -44,15 +44,36 @@
   prueba creado/editado/desactivado/borrado por API, login válido e inválido,
   rechazo de borrado con hijos, `/admin` servido por la SPA y flujo de tienda
   → carrito → CTA de WhatsApp sin errores de consola.
+- **Fase 10 — Recuperación de clave por email (17-nov-2026)**: mismo modelo que
+  Icaria (tabla de tokens, dos endpoints, dos pantallas). Token de un solo uso de
+  1 hora, respuesta genérica, honeypot, límites de 3 pedidos y 5 intentos por
+  hora y auditoría. Envío por Resend con la clave en `app_secrets`; el email del
+  administrador pasa a `dedalo.integraciones@gmail.com`. Falta el deploy y el
+  reset real confirmado por el owner.
+- **Fase 11 — Términos, privacidad y cookies desde el tenant (17-nov-2026)**:
+  tabla `tenant_legal` con los datos comerciales del negocio (razón social,
+  jurisdicción, entrega, cambios, medios de pago, alcohol) y validación de
+  obligatorios en panel y servidor. Páginas `/terminos` y `/privacidad` que
+  identifican al tenant como vendedor y a Dédalo Integraciones como proveedor de
+  la plataforma; si faltan datos, aviso "Documentos en preparación" sin contenido
+  inventado. Pie con los enlaces y "powered by Dédalo". `fecha_vencimiento` no es
+  editable por el negocio: al vencer bloquea tienda y panel. Carga inicial por
+  CLI (`npm run db:tenant:legal`). Evidencia local: 400 con faltantes, 200 con
+  datos completos, endpoints públicos con `legal.completo`, 0 errores de consola,
+  `tsc` 0 y build verde. Falta el deploy y los datos reales del demo.
 
 ## Pendiente real (cada uno con su OT)
 
-1. **OT#11 — Alta de negocios**: definir el procedimiento operativo para crear un
+1. **OT#19b — Datos legales reales del demo**: el tenant `cuadra` es de prueba y
+   aún no tiene razón social, CUIT ni condiciones comerciales. Hasta cargarlos,
+   las páginas legales muestran el aviso de preparación. El owner enviará los
+   datos.
+2. **OT#11 — Alta de negocios**: definir el procedimiento operativo para crear un
    tenant, su base, su administrador y su catálogo inicial. Hoy existe por
    scripts, sin UI de superadmin.
-2. **OT#12 — Respaldos**: definir copia de seguridad de la base core y de cada
+3. **OT#12 — Respaldos**: definir copia de seguridad de la base core y de cada
    base de negocio antes de operar con clientes reales.
-3. **OT#13 — Exportaciones** (si se aprueban): implementar solo `.xlsx` con
+4. **OT#13 — Exportaciones** (si se aprueban): implementar solo `.xlsx` con
    SheetJS e import dinámico, respetando filtros visibles, y actualizar manual y
    specs.
 

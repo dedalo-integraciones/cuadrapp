@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 
 import adminHandler from './api/admin/index';
 import uploadHandler from './api/admin/upload';
+import forgotPasswordHandler from './api/auth/forgot-password';
+import resetPasswordHandler from './api/auth/reset-password';
 import catalogHandler from './api/catalog/[slug]';
 import healthHandler from './api/health';
 import tenantHandler from './api/tenant/[slug]';
@@ -23,6 +25,12 @@ app.get('/api/catalog/:slug', (req: Request, res: Response) => catalogHandler(re
 app.get('/api/tenant/:slug', (req: Request, res: Response) => tenantHandler(req, res));
 app.all('/api/admin', (req: Request, res: Response) => adminHandler(req, res));
 app.post('/api/admin/upload', (req: Request, res: Response) => uploadHandler(req, res));
+app.post('/api/auth/forgot-password', (req: Request, res: Response) =>
+  forgotPasswordHandler(req, res)
+);
+app.post('/api/auth/reset-password', (req: Request, res: Response) =>
+  resetPasswordHandler(req, res)
+);
 
 app.use('/api', (_req: Request, res: Response) => {
   res.status(404).json({ ok: false, error: 'NO_ENCONTRADO' });

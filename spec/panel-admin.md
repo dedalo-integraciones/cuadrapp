@@ -126,32 +126,32 @@ Formulario único con secciones:
   (obligatorio, CUIT; se publica en los términos), teléfono (obligatorio),
   WhatsApp general, WhatsApp de pedidos (obligatorio), horario de atención
   (obligatorio), email de contacto (obligatorio y con formato validado) y email
-  de pedidos (formato validado).
+  de pedidos (formato validado). Documento fiscal, teléfono y ambos WhatsApp
+  muestran el tooltip "Solo números, sin signos ni espacios".
 - **Dirección**: línea 1 (obligatoria), línea 2, localidad (obligatoria),
   provincia o estado (obligatoria), código postal y país (obligatorio).
-- **Datos legales y comerciales**: razón social (obligatoria), jurisdicción
-  (obligatoria), medios de pago (obligatorios), plazo de cambios en días
-  (obligatorio), condiciones de cambios y devoluciones (obligatorias),
-  condiciones adicionales (opcional), interruptores de retiro en el local, envío
-  a domicilio y venta de alcohol. Si hay envío, exige zonas, demora y costo en
-  pesos (0 = sin cargo; se guarda en `envio_costo_cents`). Los campos con `*` y
-  las leyendas bajo cada uno explican el uso.
+- **Datos legales y comerciales**: razón social (obligatoria), medios de pago
+  (obligatorios), condiciones adicionales (opcional), interruptores de retiro en
+  el local, envío a domicilio y venta de alcohol. Si hay envío, exige zonas,
+  demora y costo como texto libre (`"A convenir"`, `"sin cargo"`, `"500"`…; se
+  guarda en `tenant_legal_envio.envio_costo`). Ya no se editan jurisdicción,
+  plazo de cambios ni condiciones de cambios.
 - **Redes sociales y moneda**: Facebook, Instagram, TikTok, símbolo de moneda
   (máximo 3 caracteres). Los enlaces deben ser vacíos o URLs absolutas http(s);
-  el servidor rechaza `javascript:`, `data:` y otros esquemas.
+  si el formato es inválido se conserva el valor anterior y se avisa.
 - **Textos de la tienda**: título principal (80), bajada (160), texto junto al
   WhatsApp (200), pie de página (300). Contador en vivo. Vacío restaura el texto
   original.
-- **Estado del servicio** (solo lectura): versión (`mode`), límite de productos
-  (`max_registros`) y vencimiento, con la nota "Lo administra la plataforma. Al
-  vencer, la tienda y el panel dejan de operar."
-- Si ya hay datos legales incompletos, arriba del formulario aparece el aviso
-  "Faltan datos legales obligatorios" con la lista.
-- Guardar valida en el navegador con el mismo criterio que el servidor
-  (`faltantesCliente`): si falta algo, muestra el error y no envía. El servidor
-  responde 400 `VALIDACION` con la lista y no escribe nada.
-- Guardar llama `set_parametros`; al volver, el panel actualiza la configuración
-  y muestra un aviso de éxito.
+- **Estado del servicio** (solo lectura): límite de productos (`max_registros`)
+  y vencimiento, con la nota "Lo administra la plataforma. Al vencer, la tienda
+  y el panel dejan de operar." La versión no se muestra.
+- Los datos obligatorios que falten se listan en un recuadro ámbar sobre el
+  botón Guardar; no bloquean el envío.
+- Guardar envía todo al servidor, que escribe de forma parcial: guarda cada campo
+  válido y devuelve los pendientes en `legal_faltantes` sin responder 400.
+- Al volver, el panel actualiza la configuración y muestra una modal
+  "Configuración guardada", con la lista de datos pendientes si quedan. Los
+  errores de red o de sesión aparecen debajo del botón Guardar.
 
 ## Imágenes
 

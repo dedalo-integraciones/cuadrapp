@@ -61,6 +61,9 @@ export type TenantLegalRow = {
   entrega_envio: number | boolean;
   entrega_zonas: string;
   entrega_demora: string;
+  /** Costo de envío tal como se publica: "A convenir", "sin cargo", "500"… */
+  envio_costo: string;
+  /** Legado numérico; ya no se usa. */
   envio_costo_cents: number | null;
   cambios_plazo_dias: number | null;
   cambios_condiciones: string;
@@ -73,7 +76,10 @@ export type TenantLegalRow = {
 /** Datos legales del negocio. Sin fila, se devuelve null (incompletos). */
 export async function leerLegalTenant(tenantId: string): Promise<TenantLegalRow | null> {
   const rs = await getCoreClient().execute({
-    sql: "SELECT * FROM tenant_legal WHERE tenant_id = ? LIMIT 1",
+    sql: `SELECT l.*, COALESCE(e.envio_costo, '') AS envio_costo
+          FROM tenant_legal l
+          LEFT JOIN tenant_legal_envio e ON e.tenant_id = l.tenant_id
+          WHERE l.tenant_id = ? LIMIT 1`,
     args: [tenantId],
   });
   if (rs.rows.length === 0) return null;
@@ -93,20 +99,11 @@ export function legalPublica(tenant: TenantRow, legal: TenantLegalRow | null) {
   const datos = {
     razon_social: textoLegal(legal?.razon_social),
     documento_fiscal: textoLegal(tenant.documento_fiscal),
-    jurisdiccion: textoLegal(legal?.jurisdiccion),
     entrega_retiro: Number(legal?.entrega_retiro ?? 0) === 1,
     entrega_envio: Number(legal?.entrega_envio ?? 0) === 1,
     entrega_zonas: textoLegal(legal?.entrega_zonas),
     entrega_demora: textoLegal(legal?.entrega_demora),
-    envio_costo_cents:
-      legal?.envio_costo_cents === null || legal?.envio_costo_cents === undefined
-        ? null
-        : Number(legal.envio_costo_cents),
-    cambios_plazo_dias:
-      legal?.cambios_plazo_dias === null || legal?.cambios_plazo_dias === undefined
-        ? null
-        : Number(legal.cambios_plazo_dias),
-    cambios_condiciones: textoLegal(legal?.cambios_condiciones),
+    envio_costo: textoLegal(legal?.envio_costo),
     medios_pago: textoLegal(legal?.medios_pago),
     condiciones_extra: textoLegal(legal?.condiciones_extra),
     vende_alcohol: Number(legal?.vende_alcohol ?? 0) === 1,
@@ -132,9 +129,7 @@ export function faltantesLegal(tenant: TenantRow, legal: TenantLegalRow | null):
   agregar(tenant.email_contacto, "email de contacto");
   agregar(tenant.telefono, "teléfono");
   agregar(tenant.horario_atencion, "horario de atención");
-  agregar(legal?.jurisdiccion, "jurisdicción");
   agregar(legal?.medios_pago, "medios de pago");
-  agregar(legal?.cambios_condiciones, "condiciones de cambios y devoluciones");
 
   const retiro = Number(legal?.entrega_retiro ?? 0) === 1;
   const envio = Number(legal?.entrega_envio ?? 0) === 1;
@@ -142,9 +137,7 @@ export function faltantesLegal(tenant: TenantRow, legal: TenantLegalRow | null):
   if (envio) {
     agregar(legal?.entrega_zonas, "zonas de envío");
     agregar(legal?.entrega_demora, "demora estimada de envío");
-  }
-  if (legal?.cambios_plazo_dias === null || legal?.cambios_plazo_dias === undefined) {
-    faltan.push("plazo de cambios");
+    agregar(legal?.envio_costo, "costo de envío");
   }
 
   return faltan;
@@ -276,20 +269,11 @@ export function parametrosTenant(tenant: TenantRow, legal: TenantLegalRow | null
     texto_footer: tenant.texto_footer || "",
     legal: {
       razon_social: legal?.razon_social || "",
-      jurisdiccion: legal?.jurisdiccion || "",
       entrega_retiro: Number(legal?.entrega_retiro ?? 0) === 1,
       entrega_envio: Number(legal?.entrega_envio ?? 0) === 1,
       entrega_zonas: legal?.entrega_zonas || "",
       entrega_demora: legal?.entrega_demora || "",
-      envio_costo_cents:
-        legal?.envio_costo_cents === null || legal?.envio_costo_cents === undefined
-          ? null
-          : Number(legal.envio_costo_cents),
-      cambios_plazo_dias:
-        legal?.cambios_plazo_dias === null || legal?.cambios_plazo_dias === undefined
-          ? null
-          : Number(legal.cambios_plazo_dias),
-      cambios_condiciones: legal?.cambios_condiciones || "",
+      envio_costo: legal?.envio_costo || "",
       medios_pago: legal?.medios_pago || "",
       condiciones_extra: legal?.condiciones_extra || "",
       vende_alcohol: Number(legal?.vende_alcohol ?? 0) === 1,

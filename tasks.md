@@ -178,6 +178,28 @@
       fixture, usuario y auditoría eliminados; `tsc` 0; build verde.
       Falta el deploy y la carga de los datos reales del demo (OT#19b).
 
+- [x] **OT#19c - Ajustes del panel tras la prueba en vivo (19-nov-2026)**.
+      Costo de envío pasa a texto libre (`"A Convenir"`, `"sin cargo"`, `"500"`…)
+      en `tenant_legal_envio.envio_costo` (migración idempotente
+      `0003_tenant_legal_envio.sql`; la columna `envio_costo_cents` queda como
+      legado). Se retiraron del panel, las validaciones y los términos la
+      jurisdicción, el plazo de cambios y las condiciones de cambios; las
+      columnas siguen en `tenant_legal` sin uso. Los términos usan una cláusula
+      fija para alimentos: no se aceptan cambios salvo error del negocio.
+      Se ocultó la versión en "Estado del servicio". Documento fiscal, teléfono y
+      ambos WhatsApp muestran el tooltip "Solo números, sin signos ni espacios".
+      El guardado es parcial: el servidor escribe todos los campos válidos,
+      conserva el valor anterior ante un email o enlace inválido y devuelve los
+      obligatorios pendientes en `legal_faltantes` sin 400. El panel ya no bloquea
+      por faltantes, muestra los pendientes y abre una modal "Configuración
+      guardada" al terminar; los errores aparecen debajo del botón Guardar.
+      Evidencia local (19-nov-2026): migración aplicada al core de producción;
+      negocio temporal → primer guardado incompleto 200 con pendientes y datos
+      escritos (razón social, costo "A convenir"), segundo guardado completo sin
+      pendientes, email inválido conserva el anterior y avisa; `get_parametros`
+      sin campos retirados; fixture, usuario, legal, envío y auditoría eliminados;
+      core con 1 tenant y 1 usuario; `tsc` 0.
+
 ## Pendientes
 
 - [ ] **OT#19b - Datos legales reales del demo**.

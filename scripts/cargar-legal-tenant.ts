@@ -19,15 +19,6 @@ function texto(valor: unknown, max: number): string {
   return String(valor ?? "").trim().slice(0, max);
 }
 
-function enteroOpcional(valor: unknown, campo: string): number | null {
-  if (valor === null || valor === undefined || String(valor).trim() === "") return null;
-  const n = Number(valor);
-  if (!Number.isFinite(n) || n < 0) {
-    throw new Error(`${campo} debe ser un número mayor o igual a 0`);
-  }
-  return Math.trunc(n);
-}
-
 function bool(valor: unknown): number {
   return valor === true || valor === 1 || valor === "1" || valor === "true" ? 1 : 0;
 }
@@ -66,23 +57,16 @@ async function main() {
   const legal: TenantLegalRow = {
     tenant_id: slug,
     razon_social: texto(datos.razon_social ?? legalActual?.razon_social, 120),
-    jurisdiccion: texto(datos.jurisdiccion ?? legalActual?.jurisdiccion, 120),
+    // Columnas heredadas: se conservan si ya existen.
+    jurisdiccion: texto(legalActual?.jurisdiccion, 120),
     entrega_retiro: bool(datos.entrega_retiro ?? legalActual?.entrega_retiro),
     entrega_envio: bool(datos.entrega_envio ?? legalActual?.entrega_envio),
     entrega_zonas: texto(datos.entrega_zonas ?? legalActual?.entrega_zonas, 200),
     entrega_demora: texto(datos.entrega_demora ?? legalActual?.entrega_demora, 120),
-    envio_costo_cents: enteroOpcional(
-      datos.envio_costo_cents ?? legalActual?.envio_costo_cents,
-      "envio_costo_cents"
-    ),
-    cambios_plazo_dias: enteroOpcional(
-      datos.cambios_plazo_dias ?? legalActual?.cambios_plazo_dias,
-      "cambios_plazo_dias"
-    ),
-    cambios_condiciones: texto(
-      datos.cambios_condiciones ?? legalActual?.cambios_condiciones,
-      600
-    ),
+    envio_costo: texto(datos.envio_costo ?? legalActual?.envio_costo, 120),
+    envio_costo_cents: legalActual?.envio_costo_cents ?? null,
+    cambios_plazo_dias: legalActual?.cambios_plazo_dias ?? null,
+    cambios_condiciones: texto(legalActual?.cambios_condiciones, 600),
     medios_pago: texto(datos.medios_pago ?? legalActual?.medios_pago, 200),
     condiciones_extra: texto(datos.condiciones_extra ?? legalActual?.condiciones_extra, 800),
     vende_alcohol: bool(datos.vende_alcohol ?? legalActual?.vende_alcohol),
@@ -155,6 +139,15 @@ async function main() {
       legal.condiciones_extra,
       legal.vende_alcohol,
     ],
+  });
+
+  await core.execute({
+    sql: `INSERT INTO tenant_legal_envio (tenant_id, envio_costo, actualizado_en)
+      VALUES (?, ?, datetime('now'))
+      ON CONFLICT(tenant_id) DO UPDATE SET
+        envio_costo = excluded.envio_costo,
+        actualizado_en = datetime('now')`,
+    args: [legal.tenant_id, legal.envio_costo],
   });
 
   console.log(`[db] datos legales cargados para ${slug}.`);

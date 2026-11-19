@@ -52,15 +52,18 @@
   reset real confirmado por el owner.
 - **Fase 11 — Términos, privacidad y cookies desde el tenant (17-nov-2026)**:
   tabla `tenant_legal` con los datos comerciales del negocio (razón social,
-  jurisdicción, entrega, cambios, medios de pago, alcohol) y validación de
-  obligatorios en panel y servidor. Páginas `/terminos` y `/privacidad` que
-  identifican al tenant como vendedor y a Dédalo Integraciones como proveedor de
-  la plataforma; si faltan datos, aviso "Documentos en preparación" sin contenido
-  inventado. Pie con los enlaces y "powered by Dédalo". `fecha_vencimiento` no es
-  editable por el negocio: al vencer bloquea tienda y panel. Carga inicial por
-  CLI (`npm run db:tenant:legal`). Evidencia local: 400 con faltantes, 200 con
-  datos completos, endpoints públicos con `legal.completo`, 0 errores de consola,
-  `tsc` 0 y build verde. Falta el deploy y los datos reales del demo.
+  entrega, medios de pago, alcohol) y validación de obligatorios en panel y
+  servidor. Páginas `/terminos` y `/privacidad` que identifican al tenant como
+  vendedor y a Dédalo Integraciones como proveedor de la plataforma; si faltan
+  datos, aviso "Documentos en preparación" sin contenido inventado. Pie con los
+  enlaces y "powered by Dédalo". `fecha_vencimiento` no es editable por el
+  negocio: al vencer bloquea tienda y panel. Carga inicial por CLI
+  (`npm run db:tenant:legal`). Ajustes del 19-nov-2026: costo de envío como texto
+  (`tenant_legal_envio`), sin jurisdicción ni campos de cambios, cláusula fija
+  para alimentos, guardado parcial con pendientes, modal de éxito y tooltips de
+  formato. Evidencia local: guardado parcial y completo, costo de texto, email
+  inválido conservado, endpoints públicos con `legal.completo`, `tsc` 0 y build
+  verde. Falta el deploy y los datos reales del demo.
 
 ## Pendiente real (cada uno con su OT)
 

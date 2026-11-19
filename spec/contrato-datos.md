@@ -116,25 +116,37 @@ ejecución). Sin fila, el negocio tiene datos legales incompletos: opera, pero
 
 - `tenant_id` TEXT PK → `tenants.id` ON DELETE CASCADE.
 - `razon_social` TEXT NOT NULL DEFAULT `''` — titular legal y vendedor.
-- `jurisdiccion` TEXT NOT NULL DEFAULT `''` — por ejemplo `Mendoza, Argentina`.
+- `jurisdiccion` TEXT NOT NULL DEFAULT `''` — **heredada**: ya no se edita ni se
+  publica.
 - `entrega_retiro` INTEGER NOT NULL DEFAULT 0.
 - `entrega_envio` INTEGER NOT NULL DEFAULT 0.
 - `entrega_zonas` TEXT NOT NULL DEFAULT `''` — obligatorio si hay envío.
 - `entrega_demora` TEXT NOT NULL DEFAULT `''` — obligatorio si hay envío.
-- `envio_costo_cents` INTEGER — centavos; NULL = a coordinar.
-- `cambios_plazo_dias` INTEGER — NULL = sin plazo declarado.
-- `cambios_condiciones` TEXT NOT NULL DEFAULT `''` — texto libre.
+- `envio_costo_cents` INTEGER — **legado**: ya no se usa ni se escribe.
+- `cambios_plazo_dias` INTEGER — **heredada**: ya no se edita ni se publica.
+- `cambios_condiciones` TEXT NOT NULL DEFAULT `''` — **heredada**: ya no se
+  edita ni se publica.
 - `medios_pago` TEXT NOT NULL DEFAULT `''`.
 - `condiciones_extra` TEXT NOT NULL DEFAULT `''` — opcional.
 - `vende_alcohol` INTEGER NOT NULL DEFAULT 0 — interruptor por negocio.
 - `actualizado_en` TEXT NOT NULL DEFAULT `datetime('now')`.
 
+### `tenant_legal_envio`
+
+Costo de envío como texto libre (`"A convenir"`, `"sin cargo"`, `"500"`…). Tabla
+aparte por la misma razón de idempotencia.
+
+- `tenant_id` TEXT PK → `tenants.id` ON DELETE CASCADE.
+- `envio_costo` TEXT NOT NULL DEFAULT `''` — obligatorio si `entrega_envio` es 1.
+- `actualizado_en` TEXT NOT NULL DEFAULT `datetime('now')`.
+
 Obligatorios para publicar (`faltantesLegal`): razón social, documento fiscal,
 dirección completa (`direccion_linea1`, `localidad`, `provincia_estado`,
-`pais`), email de contacto, teléfono, horario, jurisdicción, medios de pago,
-condiciones de cambios, al menos una forma de entrega y, si hay envío, zonas,
-demora y costo; también el plazo de cambios. El panel y `set_parametros` usan el
-mismo criterio y rechazan el guardado con 400 `VALIDACION`.
+`pais`), email de contacto, teléfono, horario, medios de pago, al menos una forma
+de entrega y, si hay envío, zonas, demora y costo. `set_parametros` guarda de
+forma **parcial**: escribe todos los campos válidos y devuelve los que faltan en
+`legal_faltantes` sin responder 400. El panel muestra esos pendientes al
+terminar y no bloquea el guardado.
 
 `fecha_vencimiento` (en `tenants`) no es editable por el negocio: la administra
 la plataforma y `tenantVigente` bloquea tienda y panel al vencer.
@@ -247,14 +259,11 @@ El pedido se arma en el navegador y se envía por WhatsApp. Ver
     "legal": {
       "razon_social": "",
       "documento_fiscal": "",
-      "jurisdiccion": "",
       "entrega_retiro": false,
       "entrega_envio": false,
       "entrega_zonas": "",
       "entrega_demora": "",
-      "envio_costo_cents": null,
-      "cambios_plazo_dias": null,
-      "cambios_condiciones": "",
+      "envio_costo": "",
       "medios_pago": "",
       "condiciones_extra": "",
       "vende_alcohol": false,

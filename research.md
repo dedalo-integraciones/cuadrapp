@@ -367,3 +367,39 @@ Evidencia local (17-nov-2026, puerto 3100):
 
 Pendiente: el tenant `cuadra` es de prueba y no tiene datos legales reales; el
 owner los enviará. Falta el deploy.
+
+## R-LEGAL-2 - Ajustes tras la prueba en vivo (19-nov-2026)
+
+La prueba del panel en producción mostró campos que no aplican al nicho de
+comidas y un guardado demasiado estricto. Se ajustó así:
+
+- **Costo de envío en texto**: `migrations/platform/0003_tenant_legal_envio.sql`
+  crea `tenant_legal_envio.envio_costo` (TEXT). Se elige tabla aparte por la misma
+  razón de idempotencia; `tenant_legal.envio_costo_cents` queda como legado y no
+  se escribe. El costo se publica tal cual en los términos, por lo que admite
+  "A Convenir", "sin cargo" o un importe.
+- **Campos retirados**: jurisdicción, plazo de cambios y condiciones de cambios
+  salen del panel, de `faltantesLegal`, de la API pública y de `/terminos`. Las
+  columnas siguen en `tenant_legal` sin uso para no requerir un `ALTER`.
+- **Cláusula fija para alimentos**: los términos ya no piden un texto de cambios.
+  Indican que no se aceptan cambios ni devoluciones una vez entregado el pedido,
+  salvo error del negocio (reposición o reintegro). Queda sujeta a revisión legal
+  del owner.
+- **Validación parcial**: `set_parametros` ya no responde 400 por legales
+  incompletos. Escribe todos los campos válidos, conserva el valor anterior ante
+  un email o enlace inválido (y lo informa) y devuelve `legal_faltantes`. El
+  panel muestra un recuadro con pendientes y, al guardar, una modal de éxito con
+  esa lista; el error de red queda debajo del botón.
+- **UI**: se oculta la versión en Estado del servicio. Documento fiscal, teléfono
+  y WhatsApp general/pedidos muestran el tooltip "Solo números, sin signos ni
+  espacios" (`Campo.tooltip` en `ui.tsx`).
+
+Evidencia local (19-nov-2026, puerto 3100): migración aplicada al core de
+producción; negocio temporal con primer guardado incompleto → 200, lista de
+pendientes y escritura efectiva de razón social, nombre y costo "A convenir";
+segundo guardado completo → sin pendientes; email inválido → 200 con aviso y
+email anterior conservado; `get_parametros` devuelve `envio_costo` y ya no
+expone los campos retirados. Fixture y auditoría eliminados; core con 1 tenant y
+1 usuario; `tsc --noEmit` 0.
+
+Pendiente: deploy del owner desde `/Github` y datos legales reales del demo.

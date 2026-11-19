@@ -67,6 +67,7 @@ import {
   AdminToast,
   Cargando,
   ConfirmDialog,
+  Modal,
   btnPrimary,
   btnSecondary,
   inputClass,
@@ -200,6 +201,7 @@ export default function AdminPanel() {
   const [guardando, setGuardando] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [errorConfig, setErrorConfig] = useState<string | null>(null);
+  const [exitoConfig, setExitoConfig] = useState<{ faltantes: string[] } | null>(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [refrescando, setRefrescando] = useState(false);
 
@@ -225,6 +227,7 @@ export default function AdminPanel() {
     setProductos([]);
     setModal(null);
     setConfirmacion(null);
+    setExitoConfig(null);
     setPestana('productos');
     setPassword('');
     setAvisoInactividad(false);
@@ -549,7 +552,8 @@ export default function AdminPanel() {
     try {
       const respuesta = await guardarParametros(TENANT, datos);
       setParametros(respuesta.parametros);
-      avisar('exito', 'Configuración guardada.');
+      setErrorConfig(null);
+      setExitoConfig({ faltantes: respuesta.parametros.legal_faltantes ?? [] });
     } catch (error) {
       if (sesionVencida(error)) {
         const inactiva = sesionInactiva(error);
@@ -1265,6 +1269,41 @@ export default function AdminPanel() {
           onCancel={() => setConfirmacion(null)}
           onConfirm={confirmarAccion}
         />
+      )}
+
+      {exitoConfig && (
+        <Modal
+          titulo="Configuración guardada"
+          onClose={() => setExitoConfig(null)}
+          ancho="max-w-md"
+          footer={
+            <div className="flex justify-end">
+              <button type="button" className={btnPrimary} onClick={() => setExitoConfig(null)}>
+                Cerrar
+              </button>
+            </div>
+          }
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div className="space-y-2 text-sm text-stone-700">
+              <p>Se guardó todo lo que estaba completo.</p>
+              {exitoConfig.faltantes.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-snug text-amber-800">
+                  <p className="font-black">Quedan datos pendientes</p>
+                  <p className="mt-1">
+                    Completalos cuando puedas: {exitoConfig.faltantes.join(', ')}.
+                  </p>
+                  <p className="mt-1">
+                    Mientras falten, los términos y la privacidad no se publican en la tienda.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

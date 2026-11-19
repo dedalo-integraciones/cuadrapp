@@ -48,14 +48,12 @@ export interface DireccionTenant {
 
 export interface LegalTenant {
   razon_social: string;
-  jurisdiccion: string;
   entrega_retiro: boolean;
   entrega_envio: boolean;
   entrega_zonas: string;
   entrega_demora: string;
-  envio_costo_cents: number | null;
-  cambios_plazo_dias: number | null;
-  cambios_condiciones: string;
+  /** Texto libre: "A convenir", "sin cargo", "500"… */
+  envio_costo: string;
   medios_pago: string;
   condiciones_extra: string;
   vende_alcohol: boolean;

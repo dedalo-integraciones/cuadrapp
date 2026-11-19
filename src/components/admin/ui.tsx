@@ -19,16 +19,44 @@ export const btnDanger =
 interface CampoProps {
   label: string;
   hint?: string;
+  /** Texto que se muestra al pasar el puntero o enfocar el signo de ayuda. */
+  tooltip?: string;
   required?: boolean;
   children: React.ReactNode;
   className?: string;
 }
 
-export const Campo: React.FC<CampoProps> = ({ label, hint, required, children, className = '' }) => (
+export const Campo: React.FC<CampoProps> = ({
+  label,
+  hint,
+  tooltip,
+  required,
+  children,
+  className = '',
+}) => (
   <label className={`block ${className}`}>
     <span className={labelClass}>
       {label}
       {required && <span className="text-[#C8180F]"> *</span>}
+      {tooltip && (
+        <span className="group relative ml-1 inline-flex align-middle">
+          <span
+            tabIndex={0}
+            role="img"
+            aria-label={tooltip}
+            title={tooltip}
+            className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-stone-300 text-[9px] font-black text-stone-500"
+          >
+            ?
+          </span>
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-48 -translate-x-1/2 rounded-lg bg-stone-900 px-2 py-1.5 text-[10px] font-medium normal-case leading-snug tracking-normal text-white shadow-lg group-hover:block group-focus-within:block"
+          >
+            {tooltip}
+          </span>
+        </span>
+      )}
     </span>
     {children}
     {hint && <span className="mt-1 block text-[10px] leading-snug text-stone-500">{hint}</span>}

@@ -1,5 +1,5 @@
 import React from 'react';
-import LegalShell, { direccionCompleta, precioEnPesos } from '../components/LegalShell';
+import LegalShell, { direccionCompleta } from '../components/LegalShell';
 import type { TenantPublico } from '../types';
 
 const H2: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -77,16 +77,17 @@ const Terminos: React.FC = () => (
           {legal.entrega_envio && (
             <p>
               <strong>Envío a domicilio:</strong> zonas {legal.entrega_zonas}. Demora
-              estimada: {legal.entrega_demora}. Costo: {precioEnPesos(
-                legal.envio_costo_cents,
-                tenant.moneda_simbolo
-              )}.
+              estimada: {legal.entrega_demora}. Costo de envío: {legal.envio_costo}.
             </p>
           )}
 
           <H2>6. Cambios y devoluciones</H2>
           <p>
-            Plazo: {legal.cambios_plazo_dias} días. {legal.cambios_condiciones}
+            Por tratarse de alimentos preparados, no se aceptan cambios ni devoluciones una
+            vez entregado el pedido. Si el pedido llega incompleto, en mal estado o no
+            coincide con lo solicitado, el negocio lo repone o reintegra el importe. Los
+            reclamos se reciben por el canal de contacto publicado en esta página dentro de
+            las 24 horas de entregado el pedido.
           </p>
 
           {legal.vende_alcohol && (
@@ -128,12 +129,11 @@ const Terminos: React.FC = () => (
             .
           </p>
 
-          <H2>{legal.vende_alcohol ? '12' : '11'}. Ley aplicable y jurisdicción</H2>
+          <H2>{legal.vende_alcohol ? '12' : '11'}. Ley aplicable</H2>
           <p>
-            Estos términos se rigen por la legislación de la República Argentina y por la
-            jurisdicción de {legal.jurisdiccion}. Nada de lo aquí escrito limita los
-            derechos que la Ley 24.240 de Defensa del Consumidor reconoce a los
-            consumidores.
+            Estos términos se rigen por la legislación de la República Argentina. Nada de lo
+            aquí escrito limita los derechos que la Ley 24.240 de Defensa del Consumidor
+            reconoce a los consumidores.
           </p>
 
           {legal.condiciones_extra && (

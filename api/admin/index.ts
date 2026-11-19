@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs";
 import { getCoreClient } from "../../src/db/core.js";
 import {
   buscarTenant,
-  faltantesLegal,
   leerLegalTenant,
   parametrosTenant,
   parseJsonSeguro,
@@ -66,16 +65,6 @@ function idValido(valor: unknown, campo = "id"): number {
   return n;
 }
 
-/** Entero opcional: vacío o ausente queda en null; negativo es error. */
-function enteroOpcional(valor: unknown, campo: string): number | null {
-  if (valor === null || valor === undefined || String(valor).trim() === "") return null;
-  const n = Number(valor);
-  if (!Number.isFinite(n) || n < 0) {
-    throw new ErrorApi(400, "VALIDACION", `El campo ${campo} debe ser un número mayor o igual a 0.`);
-  }
-  return Math.trunc(n);
-}
-
 function estadoDesdeFila(fila: Record<string, unknown>) {
   return {
     activo: Number(fila["activo"] || 0) === 1,
@@ -128,12 +117,11 @@ function filaProducto(fila: Record<string, unknown>) {
   };
 }
 
-function validarEmail(valor: unknown, campo: string): string {
+/** Email normalizado: "" si viene vacío, null si el formato es inválido. */
+function emailNormalizado(valor: unknown): string | null {
   const limpio = texto(valor, 254).toLowerCase();
-  if (limpio && !EMAIL_RE.test(limpio)) {
-    throw new ErrorApi(400, "VALIDACION", `El campo ${campo} no tiene un email válido.`);
-  }
-  return limpio;
+  if (!limpio) return "";
+  return EMAIL_RE.test(limpio) ? limpio : null;
 }
 
 function validarColor(valor: unknown): string {
@@ -152,15 +140,11 @@ function validarImagen(valor: unknown): string | null {
   return imagen;
 }
 
-/** Enlace de red social: vacío se permite; si hay valor, debe ser http(s). */
-function validarRed(valor: unknown, etiqueta: string): string {
+/** Enlace de red social: "" si viene vacío, null si no es http(s). */
+function redNormalizada(valor: unknown): string | null {
   const limpio = texto(valor, 300);
   if (!limpio) return "";
-  const url = urlSegura(limpio, 300);
-  if (!url) {
-    throw new ErrorApi(400, "VALIDACION", `El enlace de ${etiqueta} debe ser una URL http(s).`);
-  }
-  return url;
+  return urlSegura(limpio, 300);
 }
 
 type AuthOk = Extract<Awaited<ReturnType<typeof autenticarAdmin>>, { ok: true }>;
@@ -253,31 +237,46 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
 async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
   const actual = parametrosTenant(auth.tenant);
   const legalActual = await leerLegalTenant(auth.tenant.id);
-  const nombre = requerido(datos.nombre_comercial ?? actual.nombre_comercial, "nombre comercial", 120);
-  const whatsappPedidos = requerido(
-    datos.whatsapp_pedidos ?? actual.whatsapp_pedidos,
-    "WhatsApp de pedidos",
-    40
-  );
+  const avisos: string[] = [];
+
+  // Guardado parcial: cada campo válido se escribe y los obligatorios que
+  // falten se devuelven en `legal_faltantes` para avisar en el panel.
+  const nombre = texto(datos.nombre_comercial ?? actual.nombre_comercial, 120);
+  const whatsappPedidos = texto(datos.whatsapp_pedidos ?? actual.whatsapp_pedidos, 40);
+  if (!nombre) avisos.push("nombre comercial");
+  if (!whatsappPedidos) avisos.push("WhatsApp de pedidos");
 
   const brandActual = parseJsonSeguro(auth.tenant.brand);
   const redesEntrada = (datos.redes && typeof datos.redes === "object" ? datos.redes : {}) as Record<
     string,
     unknown
   >;
+  const red = (clave: "facebook" | "instagram" | "tiktok", etiqueta: string): string => {
+    const entrada = clave in redesEntrada ? redesEntrada[clave] : brandActual[clave];
+    const valor = redNormalizada(entrada);
+    if (valor === null) {
+      avisos.push(`enlace de ${etiqueta} (formato inválido)`);
+      return String(brandActual[clave] ?? "");
+    }
+    return valor;
+  };
   const brand = {
     ...brandActual,
-    facebook: validarRed(redesEntrada.facebook, "Facebook"),
-    instagram: validarRed(redesEntrada.instagram, "Instagram"),
-    tiktok: validarRed(redesEntrada.tiktok, "TikTok"),
+    facebook: red("facebook", "Facebook"),
+    instagram: red("instagram", "Instagram"),
+    tiktok: red("tiktok", "TikTok"),
   };
 
-  const emailContacto = requerido(
-    validarEmail(datos.email_contacto ?? actual.email_contacto, "email de contacto"),
-    "email de contacto",
-    254
-  );
-  const emailPedidos = validarEmail(datos.email_pedidos ?? actual.email_pedidos, "email de pedidos");
+  const correo = (clave: "email_contacto" | "email_pedidos", etiqueta: string): string => {
+    const valor = emailNormalizado(datos[clave] ?? actual[clave]);
+    if (valor === null) {
+      avisos.push(`${etiqueta} (formato inválido)`);
+      return String(actual[clave] || "");
+    }
+    return valor;
+  };
+  const emailContacto = correo("email_contacto", "email de contacto");
+  const emailPedidos = correo("email_pedidos", "email de pedidos");
 
   const entradaLegal = (
     datos.legal && typeof datos.legal === "object" ? datos.legal : {}
@@ -288,20 +287,16 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
   const legalNueva: TenantLegalRow = {
     tenant_id: auth.tenant.id,
     razon_social: legal("razon_social", legalActual?.razon_social, 120),
-    jurisdiccion: legal("jurisdiccion", legalActual?.jurisdiccion, 120),
+    // Columnas heredadas: ya no se editan, se conservan tal como están.
+    jurisdiccion: texto(legalActual?.jurisdiccion ?? "", 120),
     entrega_retiro: booleanoInt(entradaLegal.entrega_retiro ?? legalActual?.entrega_retiro, 0),
     entrega_envio: booleanoInt(entradaLegal.entrega_envio ?? legalActual?.entrega_envio, 0),
     entrega_zonas: legal("entrega_zonas", legalActual?.entrega_zonas, 200),
     entrega_demora: legal("entrega_demora", legalActual?.entrega_demora, 120),
-    envio_costo_cents: enteroOpcional(
-      entradaLegal.envio_costo_cents ?? legalActual?.envio_costo_cents,
-      "costo de envío"
-    ),
-    cambios_plazo_dias: enteroOpcional(
-      entradaLegal.cambios_plazo_dias ?? legalActual?.cambios_plazo_dias,
-      "plazo de cambios"
-    ),
-    cambios_condiciones: legal("cambios_condiciones", legalActual?.cambios_condiciones, 600),
+    envio_costo: legal("envio_costo", legalActual?.envio_costo, 120),
+    envio_costo_cents: legalActual?.envio_costo_cents ?? null,
+    cambios_plazo_dias: legalActual?.cambios_plazo_dias ?? null,
+    cambios_condiciones: texto(legalActual?.cambios_condiciones ?? "", 600),
     medios_pago: legal("medios_pago", legalActual?.medios_pago, 200),
     condiciones_extra: legal("condiciones_extra", legalActual?.condiciones_extra, 800),
     vende_alcohol: booleanoInt(entradaLegal.vende_alcohol ?? legalActual?.vende_alcohol, 0),
@@ -310,11 +305,11 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
 
   const tenantNuevo = {
     ...auth.tenant,
-    name: nombre,
+    name: nombre || actual.nombre_comercial,
     documento_fiscal: texto(datos.documento_fiscal ?? actual.documento_fiscal, 40),
     telefono: texto(datos.telefono ?? actual.telefono, 40),
     whatsapp: texto(datos.whatsapp ?? actual.whatsapp, 40),
-    whatsapp_pedidos: whatsappPedidos,
+    whatsapp_pedidos: whatsappPedidos || actual.whatsapp_pedidos,
     email_contacto: emailContacto,
     email_pedidos: emailPedidos,
     horario_atencion: texto(datos.horario_atencion ?? actual.horario_atencion, 120),
@@ -331,15 +326,6 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
     texto_footer: texto(datos.texto_footer ?? actual.texto_footer, 300),
     brand: JSON.stringify(brand),
   };
-
-  const faltan = faltantesLegal(tenantNuevo, legalNueva);
-  if (faltan.length > 0) {
-    throw new ErrorApi(
-      400,
-      "VALIDACION",
-      `Complete los datos legales obligatorios: ${faltan.join(", ")}.`
-    );
-  }
 
   await getCoreClient().execute({
     sql: `UPDATE tenants SET
@@ -411,9 +397,23 @@ async function guardarParametros(auth: AuthOk, datos: Record<string, unknown>) {
     ],
   });
 
+  await getCoreClient().execute({
+    sql: `INSERT INTO tenant_legal_envio (tenant_id, envio_costo, actualizado_en)
+      VALUES (?, ?, datetime('now'))
+      ON CONFLICT(tenant_id) DO UPDATE SET
+        envio_costo = excluded.envio_costo,
+        actualizado_en = datetime('now')`,
+    args: [legalNueva.tenant_id, legalNueva.envio_costo],
+  });
+
   const actualizado = await buscarTenant(auth.tenant.id);
   const legalGuardada = await leerLegalTenant(auth.tenant.id);
-  return parametrosTenant(actualizado || auth.tenant, legalGuardada);
+  const parametros = parametrosTenant(actualizado || auth.tenant, legalGuardada);
+  const faltantes = [...parametros.legal_faltantes];
+  for (const aviso of avisos) {
+    if (!faltantes.includes(aviso)) faltantes.push(aviso);
+  }
+  return { ...parametros, legal_faltantes: faltantes };
 }
 
 export default async function handler(req: any, res: any) {

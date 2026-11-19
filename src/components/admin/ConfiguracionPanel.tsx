@@ -11,39 +11,7 @@ interface ConfiguracionPanelProps {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Mismos obligatorios que valida el servidor, para avisar antes de enviar. */
-function faltantesCliente(form: ParametrosAdmin): string[] {
-  const faltan: string[] = [];
-  const agregar = (valor: unknown, etiqueta: string) => {
-    if (!String(valor ?? '').trim()) faltan.push(etiqueta);
-  };
-
-  agregar(form.legal.razon_social, 'razón social');
-  agregar(form.documento_fiscal, 'documento fiscal');
-  agregar(form.direccion_linea1, 'dirección');
-  agregar(form.localidad, 'localidad');
-  agregar(form.provincia_estado, 'provincia');
-  agregar(form.pais, 'país');
-  agregar(form.email_contacto, 'email de contacto');
-  agregar(form.telefono, 'teléfono');
-  agregar(form.horario_atencion, 'horario de atención');
-  agregar(form.legal.jurisdiccion, 'jurisdicción');
-  agregar(form.legal.medios_pago, 'medios de pago');
-  agregar(form.legal.cambios_condiciones, 'condiciones de cambios y devoluciones');
-
-  if (!form.legal.entrega_retiro && !form.legal.entrega_envio) {
-    faltan.push('forma de entrega (retiro o envío)');
-  }
-  if (form.legal.entrega_envio) {
-    agregar(form.legal.entrega_zonas, 'zonas de envío');
-    agregar(form.legal.entrega_demora, 'demora estimada de envío');
-    if (form.legal.envio_costo_cents === null) faltan.push('costo de envío');
-  }
-  if (form.legal.cambios_plazo_dias === null) faltan.push('plazo de cambios');
-
-  return faltan;
-}
+const FORMATO_NUMERO = 'Solo números, sin signos ni espacios';
 
 export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
   parametros,
@@ -57,11 +25,6 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
     instagram: String(parametros.redes?.instagram || ''),
     tiktok: String(parametros.redes?.tiktok || ''),
   });
-  const [costoEnvio, setCostoEnvio] = useState(
-    parametros.legal?.envio_costo_cents === null || parametros.legal?.envio_costo_cents === undefined
-      ? ''
-      : String(parametros.legal.envio_costo_cents / 100)
-  );
   const [errorLocal, setErrorLocal] = useState('');
 
   useEffect(() => {
@@ -71,11 +34,6 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
       instagram: String(parametros.redes?.instagram || ''),
       tiktok: String(parametros.redes?.tiktok || ''),
     });
-    setCostoEnvio(
-      parametros.legal?.envio_costo_cents === null || parametros.legal?.envio_costo_cents === undefined
-        ? ''
-        : String(parametros.legal.envio_costo_cents / 100)
-    );
   }, [parametros]);
 
   const cambiar = (campo: keyof ParametrosAdmin, valor: string) => {
@@ -89,32 +47,15 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
   const enviar = (evento: React.FormEvent) => {
     evento.preventDefault();
     setErrorLocal('');
-    if (!form.nombre_comercial.trim()) {
-      setErrorLocal('El nombre comercial es obligatorio.');
-      return;
-    }
-    if (!form.whatsapp_pedidos.trim()) {
-      setErrorLocal('El WhatsApp de pedidos es obligatorio.');
-      return;
-    }
+
+    // Solo se frena un formato inválido evidente. Los obligatorios que falten
+    // se guardan parcialmente: el servidor escribe lo válido y devuelve la lista.
     if (form.email_contacto.trim() && !EMAIL_RE.test(form.email_contacto.trim())) {
       setErrorLocal('El email de contacto no tiene un formato válido.');
       return;
     }
     if (form.email_pedidos.trim() && !EMAIL_RE.test(form.email_pedidos.trim())) {
       setErrorLocal('El email de pedidos no tiene un formato válido.');
-      return;
-    }
-
-    const costo = costoEnvio.trim() === '' ? null : Number(costoEnvio.replace(',', '.'));
-    if (costo !== null && (!Number.isFinite(costo) || costo < 0)) {
-      setErrorLocal('El costo de envío debe ser un número mayor o igual a 0.');
-      return;
-    }
-
-    const faltan = faltantesCliente(form);
-    if (faltan.length > 0) {
-      setErrorLocal(`Complete los datos legales obligatorios: ${faltan.join(', ')}.`);
       return;
     }
 
@@ -142,11 +83,9 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
       legal: {
         ...form.legal,
         razon_social: form.legal.razon_social.trim(),
-        jurisdiccion: form.legal.jurisdiccion.trim(),
         entrega_zonas: form.legal.entrega_zonas.trim(),
         entrega_demora: form.legal.entrega_demora.trim(),
-        envio_costo_cents: costo === null ? null : Math.round(costo * 100),
-        cambios_condiciones: form.legal.cambios_condiciones.trim(),
+        envio_costo: form.legal.envio_costo.trim(),
         medios_pago: form.legal.medios_pago.trim(),
         condiciones_extra: form.legal.condiciones_extra.trim(),
       },
@@ -155,22 +94,6 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
 
   return (
     <form onSubmit={enviar} className="space-y-4">
-      {(error || errorLocal) && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">
-          {error || errorLocal}
-        </div>
-      )}
-
-      {parametros.legal_faltantes.length > 0 && !errorLocal && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-          <p className="font-black">Faltan datos legales obligatorios</p>
-          <p className="mt-1 leading-snug">
-            Sin ellos no se pueden publicar los términos, la privacidad ni guardar la
-            configuración: {parametros.legal_faltantes.join(', ')}.
-          </p>
-        </div>
-      )}
-
       <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
         <h3 className="mb-3 text-sm font-black text-stone-900">Datos del negocio</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -182,34 +105,52 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
               maxLength={120}
             />
           </Campo>
-          <Campo label="Documento fiscal" required hint="CUIT del negocio. Se publica en los términos y condiciones.">
+          <Campo
+            label="Documento fiscal"
+            required
+            hint="CUIT del negocio. Se publica en los términos y condiciones."
+            tooltip={FORMATO_NUMERO}
+          >
             <input
               className={inputClass}
+              title={FORMATO_NUMERO}
+              inputMode="numeric"
               value={form.documento_fiscal}
               onChange={(e) => cambiar('documento_fiscal', e.target.value)}
               maxLength={40}
             />
           </Campo>
-          <Campo label="Teléfono" required>
+          <Campo label="Teléfono" required tooltip={FORMATO_NUMERO}>
             <input
               className={inputClass}
+              title={FORMATO_NUMERO}
+              inputMode="numeric"
               value={form.telefono}
               onChange={(e) => cambiar('telefono', e.target.value)}
               maxLength={40}
             />
           </Campo>
-          <Campo label="WhatsApp general">
+          <Campo label="WhatsApp general" tooltip={FORMATO_NUMERO}>
             <input
               className={inputClass}
+              title={FORMATO_NUMERO}
+              inputMode="numeric"
               value={form.whatsapp}
               onChange={(e) => cambiar('whatsapp', e.target.value)}
               maxLength={40}
               placeholder="5492617202706"
             />
           </Campo>
-          <Campo label="WhatsApp de pedidos" required hint="Número que recibe los pedidos del carrito.">
+          <Campo
+            label="WhatsApp de pedidos"
+            required
+            hint="Número que recibe los pedidos del carrito."
+            tooltip={FORMATO_NUMERO}
+          >
             <input
               className={inputClass}
+              title={FORMATO_NUMERO}
+              inputMode="numeric"
               value={form.whatsapp_pedidos}
               onChange={(e) => cambiar('whatsapp_pedidos', e.target.value)}
               maxLength={40}
@@ -306,7 +247,7 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
         <h3 className="mb-1 text-sm font-black text-stone-900">Datos legales y comerciales</h3>
         <p className="mb-3 text-[11px] leading-snug text-stone-500">
           Se publican en los términos y condiciones y en la política de privacidad. Los
-          campos con * son obligatorios: sin ellos el sitio no publica los documentos.
+          campos con * son obligatorios: mientras falten, el sitio no publica los documentos.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="Razón social" required hint="Titular legal del negocio.">
@@ -317,35 +258,12 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
               maxLength={120}
             />
           </Campo>
-          <Campo label="Jurisdicción" required hint="Por ejemplo: Mendoza, Argentina.">
-            <input
-              className={inputClass}
-              value={form.legal.jurisdiccion}
-              onChange={(e) => cambiarLegal('jurisdiccion', e.target.value)}
-              maxLength={120}
-            />
-          </Campo>
           <Campo label="Medios de pago" required hint="Se muestran en los términos.">
             <input
               className={inputClass}
               value={form.legal.medios_pago}
               onChange={(e) => cambiarLegal('medios_pago', e.target.value)}
               maxLength={200}
-            />
-          </Campo>
-          <Campo label="Plazo de cambios (días)" required>
-            <input
-              className={inputClass}
-              type="number"
-              min={0}
-              step={1}
-              value={form.legal.cambios_plazo_dias ?? ''}
-              onChange={(e) =>
-                cambiarLegal(
-                  'cambios_plazo_dias',
-                  e.target.value.trim() === '' ? null : Number(e.target.value)
-                )
-              }
             />
           </Campo>
         </div>
@@ -414,30 +332,23 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
                 placeholder="Ej.: 30 a 45 minutos"
               />
             </Campo>
-            <Campo label="Costo de envío (pesos)" required hint="0 = sin cargo.">
+            <Campo
+              label="Costo de envío"
+              required
+              hint="Se publica tal cual en los términos."
+            >
               <input
                 className={inputClass}
-                type="number"
-                min={0}
-                step="0.01"
-                value={costoEnvio}
-                onChange={(e) => setCostoEnvio(e.target.value)}
+                value={form.legal.envio_costo}
+                onChange={(e) => cambiarLegal('envio_costo', e.target.value)}
+                maxLength={120}
+                placeholder="Ej.: 500, sin cargo o A convenir"
               />
             </Campo>
           </div>
         )}
 
         <div className="mt-3 grid gap-3">
-          <Campo label="Condiciones de cambios y devoluciones" required>
-            <textarea
-              className={inputClass}
-              rows={3}
-              value={form.legal.cambios_condiciones}
-              onChange={(e) => cambiarLegal('cambios_condiciones', e.target.value)}
-              maxLength={600}
-              placeholder="Ej.: dentro de las 24 horas, con el producto en buen estado…"
-            />
-          </Campo>
           <Campo label="Condiciones adicionales" hint="Opcional. Se agrega al final de los términos.">
             <textarea
               className={inputClass}
@@ -494,11 +405,7 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
 
       <section className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
         <h3 className="mb-3 text-sm font-black text-stone-900">Estado del servicio</h3>
-        <div className="grid gap-3 text-xs sm:grid-cols-3">
-          <div>
-            <p className="font-bold uppercase tracking-wide text-stone-500">Versión</p>
-            <p className="mt-0.5 font-black text-stone-800">{form.mode || 'pedidos'}</p>
-          </div>
+        <div className="grid gap-3 text-xs sm:grid-cols-2">
           <div>
             <p className="font-bold uppercase tracking-wide text-stone-500">Límite de productos</p>
             <p className="mt-0.5 font-black text-stone-800">{form.max_registros}</p>
@@ -513,11 +420,31 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <button type="submit" className={btnPrimary} disabled={guardando}>
-          {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          Guardar configuración
-        </button>
+      {parametros.legal_faltantes.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-snug text-amber-800">
+          <span className="font-black">Datos pendientes: </span>
+          {parametros.legal_faltantes.join(', ')}.
+          <span className="mt-1 block">
+            Se guarda igual todo lo que esté completo; estos datos se pueden terminar después.
+          </span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <div className="flex justify-end">
+          <button type="submit" className={btnPrimary} disabled={guardando}>
+            {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            Guardar configuración
+          </button>
+        </div>
+        {(error || errorLocal) && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700"
+          >
+            {error || errorLocal}
+          </div>
+        )}
       </div>
     </form>
   );

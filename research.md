@@ -393,6 +393,10 @@ comidas y un guardado demasiado estricto. Se ajustó así:
 - **UI**: se oculta la versión en Estado del servicio. Documento fiscal, teléfono
   y WhatsApp general/pedidos muestran el tooltip "Solo números, sin signos ni
   espacios" (`Campo.tooltip` en `ui.tsx`).
+- **Alcance Latam**: los precios se publican "en la moneda de curso legal del
+  domicilio del negocio" y la ley aplicable remite a la legislación de ese
+  domicilio. Los documentos usan español neutro (usted), sin voseo ni referencias
+  a leyes o autoridades de un país específico.
 
 Evidencia local (19-nov-2026, puerto 3100): migración aplicada al core de
 producción; negocio temporal con primer guardado incompleto → 200, lista de

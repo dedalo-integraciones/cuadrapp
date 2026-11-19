@@ -108,7 +108,7 @@ export const ConfiguracionPanel: React.FC<ConfiguracionPanelProps> = ({
           <Campo
             label="Documento fiscal"
             required
-            hint="CUIT del negocio. Se publica en los términos y condiciones."
+            hint="Documento fiscal del negocio. Se publica en los términos y condiciones."
             tooltip={FORMATO_NUMERO}
           >
             <input

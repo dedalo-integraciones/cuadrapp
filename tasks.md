@@ -188,6 +188,9 @@
       fija para alimentos: no se aceptan cambios salvo error del negocio.
       Se ocultó la versión en "Estado del servicio". Documento fiscal, teléfono y
       ambos WhatsApp muestran el tooltip "Solo números, sin signos ni espacios".
+      Los términos y la privacidad usan español neutro (usted) y redacción aplicable
+      a Latam: los precios se expresan "en la moneda de curso legal del domicilio
+      del negocio" y la ley aplicable remite a la legislación de ese domicilio.
       El guardado es parcial: el servidor escribe todos los campos válidos,
       conserva el valor anterior ante un email o enlace inválido y devuelve los
       obligatorios pendientes en `legal_faltantes` sin 400. El panel ya no bloquea

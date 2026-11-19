@@ -25,7 +25,7 @@ const Terminos: React.FC = () => (
           <p>
             Este sitio es operado por <strong>{legal.razon_social}</strong>, que comercia
             como <strong>{tenant.name}</strong>
-            {legal.documento_fiscal ? `, CUIT ${legal.documento_fiscal}` : ''}, con
+            {legal.documento_fiscal ? `, documento fiscal ${legal.documento_fiscal}` : ''}, con
             domicilio en {domicilio}. Es el vendedor y responsable de los productos y
             servicios que se publican y se piden por este medio.
           </p>
@@ -55,16 +55,16 @@ const Terminos: React.FC = () => (
           <p>
             Los pedidos se hacen por WhatsApp desde el carrito de la tienda. El sitio no
             crea cuentas, no cobra en línea y no guarda pedidos: la conversación y la
-            confirmación quedan entre vos y el negocio. El pedido se considera aceptado
+            confirmación quedan entre usted y el negocio. El pedido se considera aceptado
             cuando el negocio lo confirma por ese mismo canal.
           </p>
 
           <H2>4. Precios y disponibilidad</H2>
           <p>
-            Los precios se muestran en pesos argentinos. El valor vigente es el publicado al
-            momento de la consulta; puede cambiar sin aviso previo y la disponibilidad se
-            confirma al cerrar el pedido. Si hay una diferencia, el negocio te lo informa
-            antes de preparar el pedido.
+            Los precios se muestran en la moneda de curso legal del domicilio del negocio.
+            El valor vigente es el publicado al momento de la consulta; puede cambiar sin
+            aviso previo y la disponibilidad se confirma al cerrar el pedido. Si hay una
+            diferencia, el negocio se lo informa antes de preparar el pedido.
           </p>
 
           <H2>5. Entrega</H2>
@@ -131,9 +131,9 @@ const Terminos: React.FC = () => (
 
           <H2>{legal.vende_alcohol ? '12' : '11'}. Ley aplicable</H2>
           <p>
-            Estos términos se rigen por la legislación de la República Argentina. Nada de lo
-            aquí escrito limita los derechos que la Ley 24.240 de Defensa del Consumidor
-            reconoce a los consumidores.
+            Estos términos se rigen por la legislación aplicable en el domicilio del negocio.
+            Nada de lo aquí escrito limita los derechos que la normativa de protección al
+            consumidor de ese domicilio reconoce a los consumidores.
           </p>
 
           {legal.condiciones_extra && (

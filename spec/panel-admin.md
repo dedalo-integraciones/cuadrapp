@@ -123,7 +123,7 @@
 Formulario único con secciones:
 
 - **Datos del negocio**: nombre comercial (obligatorio), documento fiscal
-  (obligatorio, CUIT; se publica en los términos), teléfono (obligatorio),
+  (obligatorio, documento fiscal; se publica en los términos), teléfono (obligatorio),
   WhatsApp general, WhatsApp de pedidos (obligatorio), horario de atención
   (obligatorio), email de contacto (obligatorio y con formato validado) y email
   de pedidos (formato validado). Documento fiscal, teléfono y ambos WhatsApp

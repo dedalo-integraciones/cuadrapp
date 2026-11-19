@@ -39,20 +39,20 @@ export async function enviarEmailReset(opciones: {
     (await leerSecreto("RESEND_FROM_EMAIL")) || REMITENTE_POR_DEFECTO;
   const comercio = opciones.nombreComercio?.trim() || "el negocio";
   const saludo = opciones.nombre?.trim() || "administrador";
-  const asunto = `Recupera tu clave de ${comercio}`;
+  const asunto = `Recupere su clave de ${comercio}`;
   const linkSeguro = escaparHtml(opciones.link);
 
   const html = `<div style="font-family:Poppins,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
   <h2 style="color:#C8180F;margin:0 0 16px">Recuperación de clave</h2>
-  <p style="color:#333;font-size:15px;line-height:1.5">Hola ${escaparHtml(saludo)}, recibimos una solicitud para restablecer la clave de tu cuenta en ${escaparHtml(comercio)}.</p>
+  <p style="color:#333;font-size:15px;line-height:1.5">Hola ${escaparHtml(saludo)}, recibimos una solicitud para restablecer la clave de su cuenta en ${escaparHtml(comercio)}.</p>
   <p style="margin:24px 0">
     <a href="${linkSeguro}" style="background:#C8180F;color:#FFFFFF;padding:13px 22px;border-radius:12px;text-decoration:none;font-weight:600;display:inline-block">Restablecer mi clave</a>
   </p>
-  <p style="color:#666;font-size:13px;line-height:1.5">Este enlace expira en 1 hora y sirve una sola vez. Si no lo usaste, podés ignorar este mensaje: tu clave actual sigue vigente.</p>
-  <p style="color:#999;font-size:12px;word-break:break-all;margin-top:24px">Si el botón no funciona, copiá esta dirección:<br>${linkSeguro}</p>
+  <p style="color:#666;font-size:13px;line-height:1.5">Este enlace expira en 1 hora y sirve una sola vez. Si no lo usó, puede ignorar este mensaje: su clave actual sigue vigente.</p>
+  <p style="color:#999;font-size:12px;word-break:break-all;margin-top:24px">Si el botón no funciona, copie esta dirección:<br>${linkSeguro}</p>
 </div>`;
 
-  const text = `Recuperación de clave\n\nHola ${saludo}, recibimos una solicitud para restablecer la clave de tu cuenta en ${comercio}.\n\nUsá este enlace para crear una clave nueva (expira en 1 hora y sirve una sola vez):\n${opciones.link}\n\nSi no lo usaste, podés ignorar este mensaje: tu clave actual sigue vigente.`;
+  const text = `Recuperación de clave\n\nHola ${saludo}, recibimos una solicitud para restablecer la clave de su cuenta en ${comercio}.\n\nUse este enlace para crear una clave nueva (expira en 1 hora y sirve una sola vez):\n${opciones.link}\n\nSi no lo usó, puede ignorar este mensaje: su clave actual sigue vigente.`;
 
   try {
     const respuesta = await fetch("https://api.resend.com/emails", {

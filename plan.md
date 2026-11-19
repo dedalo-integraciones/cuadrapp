@@ -63,14 +63,15 @@
   para alimentos, guardado parcial con pendientes, modal de éxito y tooltips de
   formato. Evidencia local: guardado parcial y completo, costo de texto, email
   inválido conservado, endpoints públicos con `legal.completo`, `tsc` 0 y build
-  verde. Falta el deploy y los datos reales del demo.
+  verde. Disponible en producción desde el 19-nov-2026; el demo `cuadra` usa
+  datos de ejemplo y no requiere datos reales (OT#19b cerrado).
 
 ## Pendiente real (cada uno con su OT)
 
-1. **OT#19b — Datos legales reales del demo**: el tenant `cuadra` es de prueba y
-   aún no tiene razón social, CUIT ni condiciones comerciales. Hasta cargarlos,
-   las páginas legales muestran el aviso de preparación. El owner enviará los
-   datos.
+1. **OT#20 — Dominio propio y correo**: no hay dominio todavía. Resend no tiene
+   dominios verificados y solo entrega al buzón dueño de la cuenta; al comprar el
+   dominio hay que verificarlo, guardar `RESEND_FROM_EMAIL` y actualizar
+   `APP_DOMAIN`, canonical y Open Graph.
 2. **OT#11 — Alta de negocios**: definir el procedimiento operativo para crear un
    tenant, su base, su administrador y su catálogo inicial. Hoy existe por
    scripts, sin UI de superadmin.
@@ -86,6 +87,9 @@
 - Analítica de productos vistos y pedidos iniciados, sin persistir datos
   personales.
 - Versionado de catálogo por temporada (carta de verano/invierno).
+- Multi-tenant operativo (varios negocios en un deployment, metadata por negocio
+  y alta desde el panel): diferido hasta que el proyecto escale. Hoy se opera un
+  negocio por deployment (decisión 19-nov-2026).
 
 ## Decisión vigente
 
@@ -93,4 +97,4 @@
   envía por WhatsApp. Cualquier módulo de órdenes, pagos o logística requiere
   una OT nueva y un cambio explícito del contrato de datos.
 - No hay panel de superadmin: la escala es un repositorio y un deployment por
-  cliente.
+  cliente. El multi-tenant queda diferido hasta que el proyecto escale.

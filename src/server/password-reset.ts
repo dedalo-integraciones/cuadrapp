@@ -21,7 +21,7 @@ export const MIN_CLAVE = 8;
 export const MAX_CLAVE = 72;
 
 export const MENSAJE_GENERICO =
-  "Si el email está registrado, recibirás instrucciones. El link expira en 1 hora.";
+  "Si el email está registrado, recibirá instrucciones. El link expira en 1 hora.";
 export const MENSAJE_TOKEN_INVALIDO =
   "El link de recuperación es inválido, ya se usó o venció.";
 
@@ -140,6 +140,23 @@ export async function crearTokenReset(userId: number): Promise<string> {
   );
 
   return token;
+}
+
+/** Consulta la vigencia del token sin consumirlo ni marcar intentos. */
+export async function tokenResetVigente(token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const rs = await getCoreClient().execute({
+      sql: "SELECT used, expires_at FROM password_reset_tokens WHERE token = ? LIMIT 1",
+      args: [token],
+    });
+    if (rs.rows.length === 0) return false;
+    const fila = rs.rows[0];
+    const expira = Date.parse(String(fila["expires_at"] || ""));
+    return Number(fila["used"] || 0) === 0 && Number.isFinite(expira) && expira > Date.now();
+  } catch {
+    return false;
+  }
 }
 
 export type ResultadoConsumo =

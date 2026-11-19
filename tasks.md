@@ -141,7 +141,20 @@
       cambiado a `dedalo.integraciones@gmail.com`
       sin tocar la clave; datos de prueba eliminados (usuario
       `reset-test@example.com`, tokens, límites `reset:*` y auditoría).
-      Falta el deploy y el reset real confirmado por el owner.
+      Verificado en producción (19-nov-2026) con un usuario temporal
+      `reset.check.*@example.com`, borrado al terminar: pedido → 200 genérico y
+      token de 64 hex con 60 min de vigencia; clave corta → 400 sin consumir el
+      token; clave válida → 200, hash bcrypt nuevo y el anterior deja de valer;
+      reuso → `TOKEN_INVALIDO`; email inexistente → misma respuesta. Limpieza
+      completa (usuario, tokens, límites `reset:*` y auditoría). En el core de
+      producción quedan dos filas de auditoría y un token ya usado de la prueba
+      en vivo del owner, sin efecto.
+      Pendiente: la cuenta de Resend no tiene dominios verificados y el
+      remitente es `noreply@resend.dev`, así que el correo solo se entrega a la
+      dirección dueña de la cuenta (`dedalo.integraciones@gmail.com`); falta
+      verificar un dominio y guardar `RESEND_FROM_EMAIL` en `app_secrets` antes
+      de habilitar otros administradores. La entrega real del correo no se pudo
+      confirmar desde aquí.
 
 - [x] **OT#19 - Términos y condiciones, privacidad y cookies**.
       Los documentos identifican al negocio (tenant) como vendedor y responsable;
@@ -203,14 +216,36 @@
       sin campos retirados; fixture, usuario, legal, envío y auditoría eliminados;
       core con 1 tenant y 1 usuario; `tsc` 0.
 
+- [x] **OT#19d - Ajustes de cierre (19-nov-2026)**.
+      Aviso de alcohol en el pie de la tienda cuando `vende_alcohol` está activo:
+      "Venta de bebidas alcohólicas únicamente a mayores de 18 años." Correo de
+      recuperación en español neutro (sin voseo) y enlace del login "¿Olvidó su
+      clave?". El link de `/restablecer-clave` se consulta al abrir la pantalla
+      (`POST /api/auth/reset-password` con `{ token, verificar: true }`, que no
+      consume el token ni gasta intentos): si ya se usó o venció, se avisa antes
+      de escribir la clave. El endpoint de login responde `SESION_INVALIDA`
+      cuando recibe solo un token de sesión. Evidencia local (19-nov-2026):
+      verificación válida/inválida/usada sin consumir el token; formulario oculto
+      con token falso y flujo completo de cambio de clave desde la UI con 0
+      errores de consola; pie con el aviso visible; `tsc` 0 y build verde.
+
+- [x] **OT#19b - Datos legales del demo (cerrado 19-nov-2026)**.
+      El tenant `cuadra` es el demo de la plataforma y no necesita datos legales
+      reales: los actuales son de ejemplo y alcanzan para mostrar ambos
+      documentos. Cuando se venda un negocio real, sus datos se cargan con
+      `npm run db:tenant:legal` o desde el panel (ver OT#11).
+
 ## Pendientes
 
-- [ ] **OT#19b - Datos legales reales del demo**.
-      El tenant `cuadra` es de prueba y no tiene datos legales. Hasta cargarlos,
-      `/terminos` y `/privacidad` muestran "Documentos en preparación". El owner
-      enviará razón social, CUIT, domicilio, contacto y condiciones comerciales;
-      se cargan con `npm run db:tenant:legal -- cuadra <archivo.json>` o desde el
-      panel. Criterio: ambas páginas publican el contenido real.
+- [ ] **OT#20 - Dominio propio y correo de recuperación**.
+      Todavía no hay dominio propio: todo vive en
+      `https://cuadrapp-orcin.vercel.app`. La cuenta de Resend no tiene dominios
+      verificados y el remitente es `noreply@resend.dev`, que solo entrega al
+      buzón dueño de la cuenta (`dedalo.integraciones@gmail.com`); por eso el
+      reset funciona hoy y fallaría para cualquier otro administrador. Al comprar
+      el dominio: verificarlo en Resend, guardar `RESEND_FROM_EMAIL` en
+      `app_secrets`, actualizar `APP_DOMAIN` y el canonical/Open Graph de
+      `index.html`. Criterio: un administrador con otro correo recibe el link.
 
 - [ ] **OT#11 - Procedimiento de alta de negocios**.
       Documentar y probar el alta completa de un tenant nuevo (base, migración,
@@ -228,7 +263,9 @@
 
 - **OT#14 — Superadmin web**. No se implementa: la escala es un repositorio y un
   deployment por cliente. El código multi-tenant se conserva sin panel de
-  superadmin.
+  superadmin. Decisión 19-nov-2026: el multi-tenant operativo (varios negocios en
+  un mismo deployment, metadata por negocio, alta desde el panel) queda diferido
+  hasta que el proyecto escale; hoy se opera un negocio por deployment.
 
 ## Deuda conocida
 

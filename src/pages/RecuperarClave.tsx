@@ -3,7 +3,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Mail } from 'lucide-reac
 import { btnPrimary, inputClass, labelClass } from '../components/admin/ui';
 
 const MENSAJE_EXITO =
-  'Si el email está registrado, recibirás instrucciones en los próximos minutos. El link expira en 1 hora.';
+  'Si el email está registrado, recibirá instrucciones en los próximos minutos. El link expira en 1 hora.';
 
 export default function RecuperarClave() {
   const [email, setEmail] = useState('');

@@ -39,15 +39,20 @@
 - Rutas públicas `/recuperar-clave` y `/restablecer-clave?token=...`, detectadas
   en `src/main.tsx` con `^/recuperar-clave$` y `^/restablecer-clave$`. Las dos
   están en los rewrites de `vercel.json`.
-- En el login, el enlace "¿Olvidaste tu clave?" lleva a `/recuperar-clave`. La
+- En el login, el enlace "¿Olvidó su clave?" lleva a `/recuperar-clave`. La
   pantalla pide el email y responde siempre el mismo mensaje: "Si el email está
-  registrado, recibirás instrucciones. El link expira en 1 hora."
+  registrado, recibirá instrucciones. El link expira en 1 hora."
 - El correo lo envía Resend con el remitente `RESEND_FROM_EMAIL` (por defecto
   `noreply@resend.dev`). La clave de API se lee de la tabla privada
   `app_secrets` o, si no está, de la variable de entorno del mismo nombre.
+  Atención: sin un dominio verificado, `noreply@resend.dev` solo entrega al
+  buzón dueño de la cuenta (OT#20).
 - El token es de 32 bytes en hexadecimal, sirve una sola vez y vence a la hora.
   `POST /api/auth/reset-password` valida la clave nueva (8 a 72 caracteres),
   consume el token y responde `TOKEN_INVALIDO` si es falso, ya se usó o venció.
+  Con `{ token, verificar: true }` informa `{ ok, valido }` sin consumirlo ni
+  gastar intentos; `/restablecer-clave` usa ese modo al abrir y oculta el
+  formulario si el link no sirve.
   El panel no abre sesión: la persona vuelve al login y entra con la clave nueva.
 - Límites: 3 pedidos por email por hora y 5 intentos por token por hora. Ambas
   respuestas usan `Cache-Control: no-store`.

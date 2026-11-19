@@ -29,13 +29,44 @@ export default function RestablecerClave() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
+  const [estadoLink, setEstadoLink] = useState<'verificando' | 'valido' | 'invalido'>(
+    token ? 'verificando' : 'invalido'
+  );
 
   useEffect(() => {
     if (!token) {
       setError(
         'El link de recuperación no es válido o le falta el token. Pida uno nuevo.'
       );
+      return;
     }
+
+    // Se consulta la vigencia al abrir la pantalla: si el link ya se usó o
+    // venció, se avisa antes de que la persona escriba la clave nueva.
+    const control = new AbortController();
+    fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, verificar: true }),
+      signal: control.signal,
+    })
+      .then((respuesta) => respuesta.json())
+      .then((datos) => {
+        if (datos?.ok === true && datos?.valido === true) {
+          setEstadoLink('valido');
+          return;
+        }
+        setEstadoLink('invalido');
+        setError(
+          'El link de recuperación es inválido, ya se usó o venció. Pida uno nuevo.'
+        );
+      })
+      .catch(() => {
+        // Si falla la consulta por red, se permite intentar el cambio igual.
+        if (!control.signal.aborted) setEstadoLink('valido');
+      });
+
+    return () => control.abort();
   }, [token]);
 
   useEffect(() => {
@@ -123,90 +154,108 @@ export default function RestablecerClave() {
             </span>
           </div>
         ) : (
-          <form onSubmit={enviar} className="space-y-3" noValidate>
-            {/* Honeypot: invisible para personas, tentador para bots. */}
-            <input
-              type="text"
-              name="website_url"
-              value={websiteUrl}
-              onChange={(evento) => setWebsiteUrl(evento.target.value)}
-              style={{ position: 'absolute', left: '-9999px' }}
-              tabIndex={-1}
-              autoComplete="off"
-              aria-hidden="true"
-            />
+          <>
+            {estadoLink === 'verificando' && (
+              <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-xs font-bold text-stone-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Validando el link...
+              </div>
+            )}
 
-            {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+            {estadoLink === 'invalido' && error && (
+              <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 whitespace-normal break-words">{error}</span>
               </div>
             )}
 
-            <label className="block">
-              <span className={labelClass}>Nueva clave</span>
-              <div className="relative">
+            {estadoLink === 'valido' && (
+              <form onSubmit={enviar} className="space-y-3" noValidate>
+                {/* Honeypot: invisible para personas, tentador para bots. */}
                 <input
-                  className={`${inputClass} pr-10`}
-                  type={verNueva ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={nueva}
-                  onChange={(evento) => setNueva(evento.target.value)}
-                  placeholder="Mínimo 8 caracteres"
-                  maxLength={MAXIMO_CLAVE}
-                  autoFocus
+                  type="text"
+                  name="website_url"
+                  value={websiteUrl}
+                  onChange={(evento) => setWebsiteUrl(evento.target.value)}
+                  style={{ position: 'absolute', left: '-9999px' }}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
                 />
-                <button
-                  type="button"
-                  onClick={() => setVerNueva((valor) => !valor)}
-                  aria-label={verNueva ? 'Ocultar clave' : 'Mostrar clave'}
-                  className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
-                >
-                  {verNueva ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </label>
 
-            <label className="block">
-              <span className={labelClass}>Confirmar clave</span>
-              <div className="relative">
-                <input
-                  className={`${inputClass} pr-10`}
-                  type={verConfirmacion ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={confirmacion}
-                  onChange={(evento) => setConfirmacion(evento.target.value)}
-                  placeholder="Repita la clave"
-                  maxLength={MAXIMO_CLAVE}
-                />
+                {error && (
+                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1 whitespace-normal break-words">{error}</span>
+                  </div>
+                )}
+
+                <label className="block">
+                  <span className={labelClass}>Nueva clave</span>
+                  <div className="relative">
+                    <input
+                      className={`${inputClass} pr-10`}
+                      type={verNueva ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={nueva}
+                      onChange={(evento) => setNueva(evento.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      maxLength={MAXIMO_CLAVE}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setVerNueva((valor) => !valor)}
+                      aria-label={verNueva ? 'Ocultar clave' : 'Mostrar clave'}
+                      className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                    >
+                      {verNueva ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </label>
+
+                <label className="block">
+                  <span className={labelClass}>Confirmar clave</span>
+                  <div className="relative">
+                    <input
+                      className={`${inputClass} pr-10`}
+                      type={verConfirmacion ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={confirmacion}
+                      onChange={(evento) => setConfirmacion(evento.target.value)}
+                      placeholder="Repita la clave"
+                      maxLength={MAXIMO_CLAVE}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setVerConfirmacion((valor) => !valor)}
+                      aria-label={verConfirmacion ? 'Ocultar confirmación' : 'Mostrar confirmación'}
+                      className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                    >
+                      {verConfirmacion ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </label>
+
                 <button
-                  type="button"
-                  onClick={() => setVerConfirmacion((valor) => !valor)}
-                  aria-label={verConfirmacion ? 'Ocultar confirmación' : 'Mostrar confirmación'}
-                  className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 cursor-pointer"
+                  type="submit"
+                  className={`${btnPrimary} w-full py-2.5 text-sm`}
+                  disabled={cargando || !token}
                 >
-                  {verConfirmacion ? (
-                    <EyeOff className="h-4 w-4" />
+                  {cargando ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <KeyRound className="h-4 w-4" />
                   )}
+                  {cargando ? 'Actualizando.' : 'Restablecer clave'}
                 </button>
-              </div>
-            </label>
-
-            <button
-              type="submit"
-              className={`${btnPrimary} w-full py-2.5 text-sm`}
-              disabled={cargando || !token}
-            >
-              {cargando ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <KeyRound className="h-4 w-4" />
-              )}
-              {cargando ? 'Actualizando.' : 'Restablecer clave'}
-            </button>
-          </form>
+              </form>
+            )}
+          </>
         )}
 
         <div className="mt-5 flex items-center justify-center border-t border-stone-100 pt-4">

@@ -412,6 +412,15 @@ function MainAppContent() {
               <span className={isDark ? 'text-stone-200' : 'text-stone-800'}>{tenant.name}</span>
             )}
           </p>
+          {tenant.legal?.vende_alcohol && (
+            <p
+              className={`font-bold ${
+                isDark ? 'text-amber-300' : 'text-amber-800'
+              }`}
+            >
+              Venta de bebidas alcohólicas únicamente a mayores de 18 años.
+            </p>
+          )}
           {facebookUrl && (
             <p>
               <a

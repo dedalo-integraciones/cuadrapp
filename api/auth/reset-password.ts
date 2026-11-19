@@ -13,6 +13,7 @@ import {
   claveToken,
   consumirTokenReset,
   tenantDeUsuario,
+  tokenResetVigente,
   validarClave,
 } from "../../src/server/password-reset.js";
 import {
@@ -57,6 +58,15 @@ export default async function handler(req: any, res: any) {
     const token =
       typeof body.token === "string" ? body.token.trim().slice(0, 128) : "";
     if (!token) return tokenInvalido(res);
+
+    // La pantalla consulta el link al abrirse. No consume el token ni cuenta
+    // como intento de cambio de clave.
+    if (body.verificar === true) {
+      return responder(res, 200, {
+        ok: true,
+        valido: await tokenResetVigente(token),
+      });
+    }
 
     const limite = await estadoLimite(
       claveToken(token),

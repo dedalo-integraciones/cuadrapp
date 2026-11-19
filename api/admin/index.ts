@@ -155,6 +155,12 @@ async function verificarLogin(req: any, res: any, body: Record<string, any>, slu
     return fallo(res, 401, "TOKEN_INVALIDO", "Email o clave incorrectos.");
   }
 
+  // Un token de sesión no es un email: si llega solo eso, se responde como
+  // sesión inválida en vez de acusar un formato de email incorrecto.
+  if (!texto(body.email, 254) && texto(body.sesion, 400)) {
+    return fallo(res, 401, "SESION_INVALIDA", "Sesión no válida.");
+  }
+
   const email = texto(body.email, 254).toLowerCase();
   const password = String(body.password ?? "");
   if (!EMAIL_RE.test(email) || email.length > 254) {

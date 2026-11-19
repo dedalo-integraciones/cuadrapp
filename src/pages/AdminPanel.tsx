@@ -708,7 +708,7 @@ export default function AdminPanel() {
               href="/recuperar-clave"
               className="text-[11px] font-bold text-[#C8180F] transition hover:text-[#a51410]"
             >
-              ¿Olvidaste tu clave?
+              ¿Olvidó su clave?
             </a>
           </div>
 

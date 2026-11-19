@@ -407,3 +407,39 @@ expone los campos retirados. Fixture y auditoría eliminados; core con 1 tenant 
 1 usuario; `tsc --noEmit` 0.
 
 Pendiente: deploy del owner desde `/Github` y datos legales reales del demo.
+
+## R-CIERRE-19 - Ajustes de cierre y decisiones (19-nov-2026)
+
+- **Aviso de alcohol en la tienda**: el pie muestra "Venta de bebidas
+  alcohólicas únicamente a mayores de 18 años." cuando `tenant_legal.vende_alcohol`
+  está activo. Antes el interruptor solo agregaba la sección de los términos.
+- **Español neutro**: el correo de recuperación dejó el voseo ("podés", "copiá",
+  "Usá") y el login dice "¿Olvidó su clave?". El resto del panel y los documentos
+  legales ya usaban usted.
+- **Link de recuperación validado al abrir**: `POST /api/auth/reset-password`
+  acepta `{ token, verificar: true }` y responde `{ ok, valido }` sin consumir el
+  token ni registrar intentos (`tokenResetVigente`). La pantalla
+  `/restablecer-clave` consulta al montar y, si el link ya se usó o venció,
+  muestra el aviso y oculta el formulario. Si la consulta falla por red, permite
+  intentar el cambio igual.
+- **Mensaje de sesión**: el endpoint de login (`accion: "verificar"`) responde
+  `SESION_INVALIDA` cuando recibe solo un token de sesión, en lugar de acusar un
+  formato de email incorrecto.
+- **Datos legales del demo**: OT#19b cerrado. `cuadra` es el demo y usa datos de
+  ejemplo ("Cuadra DEMO", domicilio de prueba); no se cargan datos reales. Un
+  negocio real carga los suyos por CLI o por el panel (OT#11).
+- **Multi-tenant**: diferido hasta que el proyecto escale. Se conserva el código
+  multi-tenant, pero la operación sigue siendo un repositorio y un deployment por
+  cliente.
+
+Evidencia local (19-nov-2026, puerto 3100): la verificación devuelve válido para
+un token nuevo, inválido para uno falso y válido=false para uno ya usado, sin
+crear filas en `rate_limits`; el formulario no se muestra con token falso; el
+cambio de clave completo desde la UI termina en "Clave actualizada" con 0 errores
+de consola; el pie muestra el aviso de 18+; `tsc --noEmit` 0 y `vite build` verde.
+Fixture y auditoría eliminados.
+
+Pendiente abierto como OT#20: no hay dominio propio; Resend no tiene dominios
+verificados y el remitente `noreply@resend.dev` solo entrega al buzón dueño de la
+cuenta. Mientras tanto el reset funciona para `dedalo.integraciones@gmail.com` y
+fallaría en silencio para otro administrador.

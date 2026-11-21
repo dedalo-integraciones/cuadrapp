@@ -235,6 +235,40 @@
       documentos. Cuando se venda un negocio real, sus datos se cargan con
       `npm run db:tenant:legal` o desde el panel (ver OT#11).
 
+- [x] **OT#21 - Monitoreo y endurecimiento del reset (21-nov-2026)**.
+      Monitor: `GET /api/cron/monitor` revisa la base core, la base de cada
+      negocio y el acceso a Resend; el cron diario de Vercel (`vercel.json`,
+      `0 12 * * *`) lo ejecuta y responde 503 si algo falla. Las alertas salen
+      por email al administrador y se registran en `monitor_alertas`, con una
+      espera de 6 horas por tipo de problema; si el correo no sale, no se
+      registra, para que el siguiente intento vuelva a avisar. El mismo cron poda
+      `rate_limits` (más de 24 h) y `monitor_alertas` (más de 30 días). Migración
+      `0004_monitor.sql`.
+      Reset: el token se guarda como huella SHA-256 (el link lleva el original) y
+      el consumo marca `used = 1` de forma condicional con `rowsAffected`, así que
+      dos pedidos simultáneos con el mismo link no pueden pisar la clave. Un
+      pedido nuevo invalida los anteriores y poda los usados/vencidos del mismo
+      usuario. Se agregó un tope de 10 pedidos por hora por IP, además de los 3
+      por email, y la respuesta de "olvidé mi clave" espera 2,2 s desde que entra
+      el pedido, exista o no la cuenta, para no delatar por tiempo.
+      Vencimiento: `fecha_vencimiento` bloquea tienda, datos públicos y panel
+      (ver OT#22).
+      Evidencia 21-nov-2026 (local, puerto 3100): token con huella, cambio,
+      reuso rechazado y 11.º pedido por IP bloqueado; tiempos 2272 ms con cuenta
+      y 2215 ms sin cuenta (57 ms de diferencia); monitor 200 con la clave real
+      (`core ok`, 1 negocio, `correo ok`) y 503 con una clave falsa, con el fallo
+      solo en el log y sin registrar la alerta; un correo de alerta de prueba
+      llegó al buzón del administrador; tienda, datos y panel responden 403
+      `TENANT_BLOQUEADO` con fecha vencida y vuelven a 200 al restaurarla;
+      `tsc --noEmit` 0 y `vite build` verde. Fixtures y filas de prueba
+      eliminados: core con 1 tenant y 1 usuario, sin alertas pendientes.
+
+- [x] **OT#22 - Bloqueo por vencimiento (cerrado 21-nov-2026)**.
+      Probado con el tenant `cuadra` y `fecha_vencimiento = 2020-01-01`:
+      `/api/catalog/cuadra`, `/api/tenant/cuadra` y el login del panel responden
+      403 `TENANT_BLOQUEADO`; al restaurar la fecha, el catálogo vuelve a 200.
+      La fecha se administra solo desde la base y no es editable por el negocio.
+
 ## Pendientes
 
 - [ ] **OT#20 - Dominio propio y correo de recuperación**.

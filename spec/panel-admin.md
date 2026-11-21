@@ -48,13 +48,20 @@
   Atención: sin un dominio verificado, `noreply@resend.dev` solo entrega al
   buzón dueño de la cuenta (OT#20).
 - El token es de 32 bytes en hexadecimal, sirve una sola vez y vence a la hora.
+  En `password_reset_tokens` se guarda solo su huella SHA-256; el link lleva el
+  token original. El consumo marca `used = 1` de forma condicional
+  (`rowsAffected`), así que dos pedidos simultáneos con el mismo link no pueden
+  pisar la clave. Un pedido nuevo invalida los anteriores y poda los usados o
+  vencidos del mismo usuario.
   `POST /api/auth/reset-password` valida la clave nueva (8 a 72 caracteres),
   consume el token y responde `TOKEN_INVALIDO` si es falso, ya se usó o venció.
   Con `{ token, verificar: true }` informa `{ ok, valido }` sin consumirlo ni
   gastar intentos; `/restablecer-clave` usa ese modo al abrir y oculta el
   formulario si el link no sirve.
   El panel no abre sesión: la persona vuelve al login y entra con la clave nueva.
-- Límites: 3 pedidos por email por hora y 5 intentos por token por hora. Ambas
+- Límites: 3 pedidos por email por hora, 10 pedidos por IP por hora y 5 intentos
+  por token por hora. La respuesta de "olvidé mi clave" se completa a 2,2 s desde
+  que entra el pedido, exista o no la cuenta, para no delatar por tiempo. Las
   respuestas usan `Cache-Control: no-store`.
 - Auditoría: `PASSWORD_RESET_REQUEST` al pedir y `PASSWORD_RESET_SUCCESS` al
   cambiar. Nunca se guarda el token ni la clave.
@@ -211,8 +218,23 @@ Acciones usadas por el panel:
 
 Códigos de error relevantes: `VALIDACION` (400), `TOKEN_INVALIDO` (401),
 `SESION_INVALIDA` (401), `SESION_INACTIVA` (401), `SIN_PERMISO` (403),
-`TENANT_NO_ENCONTRADO` (404), `REFERENCIA` (409), `LIMITE` (409),
-`RATE_LIMIT` (429), `ALMACENAMIENTO_NO_CONFIGURADO` (503).
+`TENANT_BLOQUEADO` (403, negocio suspendido o vencido), `TENANT_NO_ENCONTRADO`
+(404), `REFERENCIA` (409), `LIMITE` (409), `RATE_LIMIT` (429),
+`ALMACENAMIENTO_NO_CONFIGURADO` (503).
+
+## Monitoreo
+
+- `GET /api/cron/monitor` revisa la base core, la base de cada negocio y el
+  acceso a Resend. Responde 200 si todo está bien y 503 si algo falla; no expone
+  datos del negocio. Lo llama el cron diario de Vercel (`vercel.json`,
+  `0 12 * * *`).
+- Las alertas salen por email al administrador y se registran en
+  `monitor_alertas`, con una espera de 6 horas por tipo de problema. Si el correo
+  no sale, no se registra: el siguiente intento vuelve a avisar.
+- El mismo cron poda `rate_limits` con más de 24 horas y `monitor_alertas` con
+  más de 30 días.
+- El endpoint es público y no requiere sesión; cada ejecución hace una lectura
+  mínima y no toca datos del negocio.
 
 ## Lo que NO existe en v1
 

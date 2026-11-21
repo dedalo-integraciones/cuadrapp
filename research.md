@@ -443,3 +443,50 @@ Pendiente abierto como OT#20: no hay dominio propio; Resend no tiene dominios
 verificados y el remitente `noreply@resend.dev` solo entrega al buzón dueño de la
 cuenta. Mientras tanto el reset funciona para `dedalo.integraciones@gmail.com` y
 fallaría en silencio para otro administrador.
+
+## R-CIERRE-21 - Monitoreo y endurecimiento (21-nov-2026)
+
+- **Monitor**: `GET /api/cron/monitor` revisa la base core, la base de cada
+  negocio y el acceso a Resend; el cron diario de Vercel (`vercel.json`,
+  `0 12 * * *`) lo ejecuta. Responde 200 si todo está bien y 503 si algo falla,
+  sin exponer datos del negocio. La lógica vive en `src/server/monitor.ts`.
+- **Alertas**: llegan al email del administrador (el del primer `membership`, o
+  `ADMIN_EMAIL` si no hay base) y quedan en `monitor_alertas` con una espera de
+  6 horas por clave (`core`, `tenants`, `tenant:<id>`, `resend`, `resend-config`,
+  `email-reset`). Si el correo no sale, la fila no se escribe: el siguiente
+  intento vuelve a avisar en vez de quedar callado 6 horas. Si no hay base,
+  queda el log del servidor.
+- **Tokens de reset**: en `password_reset_tokens` se guarda solo la huella
+  SHA-256; el link lleva el token original de 64 hex. La clave de límite
+  `reset:token:*` también usa la huella, no el token en claro.
+- **Carrera de doble uso**: el consumo marca `used = 1` con
+  `UPDATE ... WHERE id = ? AND used = 0` y aborta si `rowsAffected !== 1`; el
+  cambio de clave y el marcado del resto van en un batch. Dos pedidos simultáneos
+  con el mismo link ya no pueden pisar la clave.
+- **Poda**: un pedido nuevo elimina los tokens usados/vencidos del mismo usuario
+  e invalida los vigentes anteriores. El cron borra `rate_limits` con más de 24
+  horas y `monitor_alertas` con más de 30 días.
+- **Tope por IP**: 10 pedidos por hora por IP, además de 3 por email. Se aplica
+  antes de mirar el email, así que el abuso automatizado no depende de conocer
+  una cuenta.
+- **Tiempo de respuesta**: la respuesta de "olvidé mi clave" se completa a
+  2,2 s desde que entra el pedido, exista o no la cuenta. Sin esto, el camino con
+  envío real tardaba alrededor de 0,7 s más que el camino sin cuenta. El costo es
+  una espera fija perceptible en un flujo que no es de uso frecuente.
+- **Vencimiento (OT#22)**: con `fecha_vencimiento` anterior a hoy, catálogo,
+  datos públicos y login del panel responden 403 `TENANT_BLOQUEADO`; al
+  restaurar la fecha vuelven a operar. No hay caché de tenants, así que el cambio
+  se ve en la siguiente petición.
+
+Evidencia local (21-nov-2026, puerto 3100): token con huella SHA-256, cambio de
+clave, reuso rechazado y 11.º pedido por IP bloqueado; tiempos de 2272 ms con
+cuenta y 2215 ms sin cuenta (57 ms de diferencia); monitor 200 con la clave real
+(`core ok`, 1 negocio, `correo ok`) y 503 con una clave falsa, con el error solo
+en el log y sin fila de alerta; un correo de alerta de prueba llegó al buzón del
+administrador; tienda, datos y panel en 403 con fecha vencida y de vuelta en 200
+al restaurarla; `tsc --noEmit` 0 y `vite build` verde. Fixtures y filas de prueba
+eliminados: core con 1 tenant y 1 usuario.
+
+Límite conocido: el cron es público (no hay `CRON_SECRET`). Cualquiera puede
+dispararlo, pero cada ejecución hace una lectura mínima y respeta la espera de
+6 horas, así que no puede generar correos en cadena ni tocar datos.

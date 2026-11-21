@@ -15,6 +15,7 @@ import { getCoreClient } from "../db/core.js";
 export const TOKEN_BYTES = 32;
 export const EXPIRA_MS = 60 * 60 * 1000;
 export const MAX_PEDIDOS_POR_EMAIL = 3;
+export const MAX_PEDIDOS_POR_IP = 10;
 export const MAX_INTENTOS_POR_TOKEN = 5;
 export const VENTANA_RESET_MS = 60 * 60 * 1000;
 export const MIN_CLAVE = 8;
@@ -64,8 +65,21 @@ export function clavePedido(email: string): string {
   return `reset:pedido:${email}`.slice(0, 254);
 }
 
+export function clavePedidoIp(ip: string): string {
+  return `reset:ip:${ip}`.slice(0, 80);
+}
+
 export function claveToken(token: string): string {
-  return `reset:token:${token.slice(0, 96)}`;
+  // La clave de límite tampoco guarda el token en claro: se usa su huella.
+  return `reset:token:${huellaToken(token)}`;
+}
+
+/**
+ * En la base se guarda solo la huella SHA-256 del token. El link lleva el token
+ * original; si alguien obtiene una copia de la tabla, no puede usarlo.
+ */
+function huellaToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 export async function buscarUsuarioPorEmail(
@@ -117,23 +131,30 @@ export async function nombreComercioDeUsuario(
 }
 
 /**
- * Invalida los tokens anteriores sin usar y crea uno nuevo. Así un pedido
- * nuevo anula el link del pedido anterior.
+ * Invalida los tokens anteriores sin usar, poda los usados/vencidos del mismo
+ * usuario y crea uno nuevo. Así un pedido nuevo anula el link anterior.
  */
 export async function crearTokenReset(userId: number): Promise<string> {
   const core = getCoreClient();
   const token = crypto.randomBytes(TOKEN_BYTES).toString("hex");
   const expira = new Date(Date.now() + EXPIRA_MS).toISOString();
+  const ahora = new Date().toISOString();
 
   await core.batch(
     [
+      {
+        // Poda de este usuario: los usados no sirven y los vencidos tampoco.
+        sql: `DELETE FROM password_reset_tokens
+              WHERE user_id = ? AND (used = 1 OR expires_at < ?)`,
+        args: [userId, ahora],
+      },
       {
         sql: "UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0",
         args: [userId],
       },
       {
         sql: "INSERT INTO password_reset_tokens (user_id, token, expires_at, used) VALUES (?, ?, ?, 0)",
-        args: [userId, token, expira],
+        args: [userId, huellaToken(token), expira],
       },
     ],
     "write"
@@ -148,7 +169,7 @@ export async function tokenResetVigente(token: string): Promise<boolean> {
   try {
     const rs = await getCoreClient().execute({
       sql: "SELECT used, expires_at FROM password_reset_tokens WHERE token = ? LIMIT 1",
-      args: [token],
+      args: [huellaToken(token)],
     });
     if (rs.rows.length === 0) return false;
     const fila = rs.rows[0];
@@ -177,7 +198,7 @@ export async function consumirTokenReset(
           FROM password_reset_tokens t
           JOIN users u ON u.id = t.user_id
           WHERE t.token = ? LIMIT 1`,
-    args: [token],
+    args: [huellaToken(token)],
   });
   if (rs.rows.length === 0) return { ok: false };
 
@@ -191,6 +212,14 @@ export async function consumirTokenReset(
   const userId = Number(fila["user_id"]);
   const idToken = Number(fila["id"]);
   if (!userId || !idToken) return { ok: false };
+
+  // Marca condicional: si otro pedido simultáneo ya lo consumió, este se
+  // descarta antes de tocar la clave. Cierra la carrera de doble uso.
+  const marcado = await core.execute({
+    sql: "UPDATE password_reset_tokens SET used = 1 WHERE id = ? AND used = 0",
+    args: [idToken],
+  });
+  if (Number(marcado.rowsAffected || 0) !== 1) return { ok: false };
 
   const hash = await bcrypt.hash(nuevaClave, 12);
   await core.batch(

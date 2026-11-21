@@ -65,6 +65,15 @@
   inválido conservado, endpoints públicos con `legal.completo`, `tsc` 0 y build
   verde. Disponible en producción desde el 19-nov-2026; el demo `cuadra` usa
   datos de ejemplo y no requiere datos reales (OT#19b cerrado).
+- **Fase 12 — Monitoreo y endurecimiento (21-nov-2026)**: cron diario
+  `GET /api/cron/monitor` que revisa la base core, la base de cada negocio y el
+  acceso a Resend, con alertas por email al administrador y una espera de 6 horas
+  por tipo de problema (`monitor_alertas`, migración `0004_monitor.sql`). El
+  mismo cron poda `rate_limits` y las alertas viejas. En el reset, el token se
+  guarda como huella SHA-256, el consumo es condicional (sin carrera de doble
+  uso), se suma un tope de 10 pedidos por hora por IP y la respuesta espera
+  2,2 s para no delatar por tiempo si el email existe. Bloqueo por vencimiento
+  probado y cerrado (OT#22).
 
 ## Pendiente real (cada uno con su OT)
 

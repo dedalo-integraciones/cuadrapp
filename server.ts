@@ -8,6 +8,7 @@ import uploadHandler from './api/admin/upload';
 import forgotPasswordHandler from './api/auth/forgot-password';
 import resetPasswordHandler from './api/auth/reset-password';
 import catalogHandler from './api/catalog/[slug]';
+import monitorCronHandler from './api/cron/monitor';
 import healthHandler from './api/health';
 import tenantHandler from './api/tenant/[slug]';
 
@@ -30,6 +31,9 @@ app.post('/api/auth/forgot-password', (req: Request, res: Response) =>
 );
 app.post('/api/auth/reset-password', (req: Request, res: Response) =>
   resetPasswordHandler(req, res)
+);
+app.all('/api/cron/monitor', (req: Request, res: Response) =>
+  monitorCronHandler(req, res)
 );
 
 app.use('/api', (_req: Request, res: Response) => {

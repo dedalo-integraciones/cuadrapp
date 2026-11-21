@@ -7,13 +7,16 @@ import {
 } from "../../src/server/http.js";
 import { auditar } from "../../src/server/audit.js";
 import { enviarEmailReset } from "../../src/server/email.js";
+import { alertar } from "../../src/server/monitor.js";
 import {
   MAX_PEDIDOS_POR_EMAIL,
+  MAX_PEDIDOS_POR_IP,
   MENSAJE_GENERICO,
   VENTANA_RESET_MS,
   baseUrlDeRequest,
   buscarUsuarioPorEmail,
   clavePedido,
+  clavePedidoIp,
   crearTokenReset,
   normalizarEmail,
   nombreComercioParaEmail,
@@ -23,6 +26,18 @@ import {
   estadoLimite,
   registrarIntento,
 } from "../../src/server/rate-limit.js";
+
+/**
+ * La respuesta se demora hasta este total desde que entra el pedido, exista o
+ * no el email. Con un tope fijo, el tiempo no delata si la cuenta existe: el
+ * camino con envío real y el camino sin cuenta terminan en el mismo momento.
+ */
+const DEMORA_TOTAL_MS = 2200;
+
+async function igualarTiempo(inicio: number): Promise<void> {
+  const restante = DEMORA_TOTAL_MS - (Date.now() - inicio);
+  if (restante > 0) await new Promise((listo) => setTimeout(listo, restante));
+}
 
 /**
  * POST /api/auth/forgot-password
@@ -43,12 +58,32 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const inicio = Date.now();
     const body = await leerBody(req);
+    const ip = ipCliente(req);
 
     // Honeypot: invisible para personas, tentador para bots.
     if (String(body.website_url || "").trim() !== "") {
       return responder(res, 200, { ok: true, mensaje: MENSAJE_GENERICO });
     }
+
+    // Tope por IP, además del tope por email: frena el abuso automatizado.
+    const limiteIp = await estadoLimite(
+      clavePedidoIp(ip),
+      MAX_PEDIDOS_POR_IP,
+      VENTANA_RESET_MS
+    );
+    if (!limiteIp.permitido) {
+      return responder(res, 200, {
+        ok: false,
+        error: "RATE_LIMIT",
+        mensaje: `Demasiados pedidos. Espere ${Math.max(
+          1,
+          limiteIp.minutosRestantes
+        )} minutos.`,
+      });
+    }
+    await registrarIntento(clavePedidoIp(ip), MAX_PEDIDOS_POR_IP, VENTANA_RESET_MS);
 
     const emailCrudo =
       typeof body.email === "string"
@@ -96,17 +131,27 @@ export default async function handler(req: any, res: any) {
         await tenantDeUsuario(usuario.id),
         usuario.id,
         "PASSWORD_RESET_REQUEST",
-        { email, ip: ipCliente(req) }
+        { email, ip }
       );
 
-      await enviarEmailReset({
+      const envio = await enviarEmailReset({
         to: usuario.email,
         nombre: usuario.name,
         link,
         nombreComercio,
       });
+      const motivoFallo = envio.ok === false ? envio.motivo : "";
+      if (motivoFallo) {
+        void alertar(
+          "email-reset",
+          "No se pudo enviar el email de recuperación",
+          `Motivo: ${motivoFallo}. Destinatario: ${usuario.email}.`
+        );
+      }
     }
 
+    // Mismo tiempo de respuesta exista o no el email.
+    await igualarTiempo(inicio);
     return responder(res, 200, { ok: true, mensaje: MENSAJE_GENERICO });
   } catch (error) {
     // Cualquier fallo mantiene la misma respuesta pública.
